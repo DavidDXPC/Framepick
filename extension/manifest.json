@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FramePick",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Pick any image, video, or GIF on the web — get paste-ready AI prompts, and send compositions & motion structure straight into nFrame Studio.",
   "permissions": ["storage", "activeTab", "tabs"],
   "host_permissions": ["<all_urls>"],

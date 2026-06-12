@@ -87,6 +87,10 @@ export interface Variant {
 // and the replicated video prompt whose subject is the @hero token.
 export interface MotionRef {
 	frames: { t: number; src: string }[];
+	// Generated "@hero applied" versions of the frames (Hero swapped in as the
+	// subject, composition/camera/lighting preserved). Filled by the
+	// "Apply @hero to Frames" action.
+	heroFrames?: { t: number; src: string }[];
 	duration: number;
 	breakdown: {
 		shot: string;

@@ -1,7 +1,7 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { icons } from '../../lib/icons';
 import { fileToRefImage } from '../../state/persistence';
-import type { RefImage } from '../../state/types';
+import type { MotionRef, RefImage } from '../../state/types';
 import { DESCRIPTION_ENHANCE_MODES, EnhancePill } from './ai';
 
 // RefThumb (Zs): a single reference-image thumbnail with upload / drop / clear / Board.
@@ -76,6 +76,66 @@ export function RefThumb({
 	);
 }
 
+// CompositionFrames: motion keyframes from FramePick occupying the Composition
+// slot — layout & motion guides only. When "@hero applied" versions exist, a
+// mini segmented control flips the strip between Source and @hero frames.
+function CompositionFrames({
+	motionRef,
+	heroBusy,
+	heroProgress,
+	onApplyHero,
+	onRemove,
+}: {
+	motionRef: MotionRef;
+	heroBusy?: boolean;
+	heroProgress?: string;
+	onApplyHero?: (() => void) | null;
+	onRemove: () => void;
+}) {
+	const hasHero = !!motionRef.heroFrames?.length;
+	const [view, setView] = useState<'src' | 'hero'>(hasHero ? 'hero' : 'src');
+	const frames = view === 'hero' && hasHero ? motionRef.heroFrames! : motionRef.frames;
+	return (
+		<div className="nf-comp-frames">
+			<div className="nf-comp-frames-head">
+				<span className="nf-ref-role-cap">Composition</span>
+				{hasHero && (
+					<span className="nf-comp-seg" role="tablist" aria-label="Composition frame source">
+						<button type="button" className={view === 'src' ? 'on' : ''} onClick={() => setView('src')}>
+							Source
+						</button>
+						<button type="button" className={view === 'hero' ? 'on' : ''} onClick={() => setView('hero')}>
+							@hero
+						</button>
+					</span>
+				)}
+				<button type="button" className="nf-comp-x" title="Remove motion frames" onClick={onRemove}>
+					{icons.x}
+				</button>
+			</div>
+			<div className="nf-comp-strip" title="Motion keyframes — they guide the hero's placement, framing, scale, timing and continuity. They are never the final subject.">
+				{frames.map((f, i) => (
+					<figure key={`${view}-${i}`}>
+						<img src={f.src} alt="" />
+						<figcaption>{f.t.toFixed(1)}s</figcaption>
+					</figure>
+				))}
+			</div>
+			{onApplyHero && (
+				<button
+					type="button"
+					className="nf-comp-apply"
+					disabled={!!heroBusy}
+					title="Generate new composition frames with your Hero as the subject — composition, camera angle, framing, lighting and motion structure are preserved."
+					onClick={onApplyHero}
+				>
+					{heroBusy ? heroProgress || 'Applying @hero…' : 'Apply @hero to Frames'}
+				</button>
+			)}
+		</div>
+	);
+}
+
 // DescriptionBlock (oh): Hero + Composition reference slots above the description textarea.
 export function DescriptionBlock({
 	value,
@@ -83,18 +143,28 @@ export function DescriptionBlock({
 	onChange,
 	talentRef,
 	sketchRef,
+	motionRef,
 	onTalentRef,
 	onSketchRef,
 	onPickBoard,
+	onRemoveMotion,
+	onApplyHeroFrames,
+	heroBusy,
+	heroProgress,
 }: {
 	value: string;
 	visualStyle?: string;
 	onChange: (v: string) => void;
 	talentRef?: RefImage | null;
 	sketchRef?: RefImage | null;
+	motionRef?: MotionRef | null;
 	onTalentRef: (img: RefImage | null) => void;
 	onSketchRef: (img: RefImage | null) => void;
 	onPickBoard?: ((target: 'talent' | 'sketch') => void) | null;
+	onRemoveMotion?: () => void;
+	onApplyHeroFrames?: (() => void) | null;
+	heroBusy?: boolean;
+	heroProgress?: string;
 }) {
 	return (
 		<div className="nf-description">
@@ -106,13 +176,17 @@ export function DescriptionBlock({
 					title="Hero — the subject's identity. The generator keeps its look and places it into the shot."
 					onPickBoard={onPickBoard ? () => onPickBoard('talent') : null}
 				/>
-				<RefThumb
-					image={sketchRef}
-					onChange={onSketchRef}
-					role="Composition"
-					title="Composition — the layout/pose the Hero is placed into (the Hero replaces its subject). Only the composition is used — not its background, scenery or lighting."
-					onPickBoard={onPickBoard ? () => onPickBoard('sketch') : null}
-				/>
+				{motionRef?.frames?.length ? (
+					<CompositionFrames motionRef={motionRef} heroBusy={heroBusy} heroProgress={heroProgress} onApplyHero={onApplyHeroFrames} onRemove={() => onRemoveMotion?.()} />
+				) : (
+					<RefThumb
+						image={sketchRef}
+						onChange={onSketchRef}
+						role="Composition"
+						title="Composition — the layout/pose the Hero is placed into (the Hero replaces its subject). Only the composition is used — not its background, scenery or lighting."
+						onPickBoard={onPickBoard ? () => onPickBoard('sketch') : null}
+					/>
+				)}
 			</div>
 			<div className="nf-description-head">
 				<span>Description</span>

@@ -146,6 +146,14 @@ export function buildPrompt(visualStyle: string, shot: Shot, sceneAspect: string
 	const lightingParts = [styleGrade, ...(f.lightingOverride ? shotLighting : [])].filter(Boolean);
 	if (lightingParts.length) out.push(`Lighting for this shot — these take precedence over the project look: ${lightingParts.join(', ')}.`);
 
+	// FramePick motion structure: the still is one moment of a moving shot —
+	// keep subject placement, scale and continuity consistent with the guides.
+	if (shot.motionRef?.breakdown) {
+		const mb = shot.motionRef.breakdown;
+		const guide = [mb.camera_movement && `camera: ${mb.camera_movement}`, mb.scene_action && `action: ${mb.scene_action}`].filter(Boolean).join('; ');
+		if (guide) out.push(`Motion continuity (this still belongs to a moving shot): ${guide}. Keep the subject's placement, framing and scale consistent with the composition reference.`);
+	}
+
 	out.push(`Output: photorealistic, ${f.aspect || sceneAspect} aspect ratio, accurate color.`);
 	out.push('Constraints: accurate color, clean specular geometry, coherent edges and geometry, no duplicate elements, no extra text, no watermarks.');
 	return out.join('\n\n');
@@ -158,7 +166,11 @@ export function assembleShotPrompt(visualStyle: string, shot: Shot, sceneAspect:
 	const base = buildPrompt(visualStyle, shot, sceneAspect);
 	const prefix: string[] = [];
 	if (shot.talentRef?.src) prefix.push('Use the HERO reference image as the exact subject — preserve its identity, colors, materials and design.');
-	if (shot.sketchRef?.src)
+	if (shot.motionRef?.frames?.length)
+		prefix.push(
+			"Use the COMPOSITION reference image (a keyframe sampled from a motion reference) ONLY for layout, framing, camera angle and the subject's placement and scale. Do NOT copy its own subject, background, scenery, colors or lighting — take only the spatial structure. Place the HERO subject into that structure, keeping it consistent for motion continuity. Explicit Frame settings and lighting specified below take precedence.",
+		);
+	else if (shot.sketchRef?.src)
 		prefix.push(
 			"Use the COMPOSITION reference image ONLY for layout, framing, camera angle, pose and placement of the subject. Do NOT copy its background, environment, scenery, props, colors or lighting — take only the spatial composition. Place the HERO subject into that composition, replacing the reference's own subject. Explicit Frame settings and lighting specified below take precedence.",
 		);

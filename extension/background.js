@@ -16,12 +16,26 @@ const DEFAULTS = {
 };
 const HISTORY_MAX = 20;
 
-const STILL_SYSTEM = `You are FramePick, a tool that turns a reference image into a single image-generation prompt for FLUX.2.
+const STILL_SYSTEM = `You are FramePick, a tool that turns a reference image into image-generation prompts for FLUX.2.
 
-Given one image, write exactly one FLUX.2-ready prompt that would recreate its look and content:
-- One paragraph, 100–160 words, present tense, no line breaks.
-- Concrete visual language only: subject and action, composition and framing, lens/perspective feel, lighting (direction, quality, color temperature), color grade and palette, mood, materials and surface texture, background and depth of field, any notable style (photographic, illustration, 3D, etc.).
-- Do not mention that this is a prompt, do not address the user, no preamble, no quotes, no markdown. Output the prompt text only.`;
+Given one image, produce two FLUX.2-ready prompts:
+- prompt: one paragraph, 100–160 words, present tense, no line breaks. Concrete visual language only: subject and action, composition and framing, lens/perspective feel, lighting (direction, quality, color temperature), color grade and palette, mood, materials and surface texture, background and depth of field, any notable style (photographic, illustration, 3D, etc.). Recreates the image as-is.
+- hero_prompt: the same prompt rewritten so the image's main subject is replaced everywhere by the literal token @hero — keep the composition, framing, lens feel, lighting, grade, background and style identical. Refer to the subject only as @hero; never describe the original subject's identity, species, brand, clothing or appearance.
+
+Do not mention that these are prompts, do not address the user, no preamble, no quotes, no markdown.`;
+
+const STILL_SCHEMA = {
+  type: 'json_schema',
+  schema: {
+    type: 'object',
+    properties: {
+      prompt: { type: 'string' },
+      hero_prompt: { type: 'string' },
+    },
+    required: ['prompt', 'hero_prompt'],
+    additionalProperties: false,
+  },
+};
 
 const MOTION_SYSTEM = `You are FramePick, a tool that analyzes a short video clip from frames sampled evenly across its duration (in chronological order, each labeled with its timestamp).
 
@@ -131,6 +145,9 @@ function base64Of(dataUrl) {
 }
 
 function motionUserText(frames, duration) {
+  if (frames.length === 1) {
+    return `This single frame was sampled from a clip of about ${duration.toFixed(1)}s. Infer as much of the motion as the frame allows (motion blur, pose, framing), then produce the motion breakdown.`;
+  }
   return `These ${frames.length} frames were sampled evenly across a clip of about ${duration.toFixed(1)}s, in chronological order. Compare them carefully to infer the camera movement, then produce the motion breakdown.`;
 }
 
@@ -190,19 +207,20 @@ async function claudeStill(imageDataUrl, { apiKey, model }) {
   if (!apiKey) throw new Error('NO_KEY');
   const response = await callClaude({
     model,
-    max_tokens: 1024,
+    max_tokens: 2048,
     system: STILL_SYSTEM,
+    output_config: { format: STILL_SCHEMA },
     messages: [{
       role: 'user',
       content: [
         { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64Of(imageDataUrl) } },
-        { type: 'text', text: 'Write the FLUX.2 prompt for this image.' },
+        { type: 'text', text: 'Write the FLUX.2 prompt and the @hero variant for this image.' },
       ],
     }],
   }, apiKey);
-  const text = response.content.find((b) => b.type === 'text')?.text?.trim();
+  const text = response.content.find((b) => b.type === 'text')?.text;
   if (!text) throw new Error('Empty response from the model');
-  return text;
+  return JSON.parse(text);
 }
 
 async function claudeMotion(frames, duration, { apiKey, model }) {
@@ -245,18 +263,22 @@ async function openaiStill(imageDataUrl, { openaiKey, openaiModel }) {
   if (!openaiKey) throw new Error('NO_KEY');
   const data = await callOpenAI({
     model: openaiModel,
-    max_tokens: 1024,
+    max_tokens: 2048,
     messages: [
       { role: 'system', content: STILL_SYSTEM },
       { role: 'user', content: [
-        { type: 'text', text: 'Write the FLUX.2 prompt for this image.' },
+        { type: 'text', text: 'Write the FLUX.2 prompt and the @hero variant for this image.' },
         { type: 'image_url', image_url: { url: imageDataUrl } }, // OpenAI takes the full data: URL
       ] },
     ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'still_prompts', strict: true, schema: STILL_SCHEMA.schema },
+    },
   }, openaiKey);
-  const text = data.choices?.[0]?.message?.content?.trim();
+  const text = data.choices?.[0]?.message?.content;
   if (!text) throw new Error('Empty response from the model');
-  return text;
+  return JSON.parse(text);
 }
 
 async function openaiMotion(frames, duration, { openaiKey, openaiModel }) {
@@ -372,9 +394,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: true, dataUrl });
           break;
         }
-        case 'generate-still':
-          sendResponse({ ok: true, prompt: await generateStill(msg.dataUrl) });
+        case 'generate-still': {
+          const still = await generateStill(msg.dataUrl);
+          sendResponse({ ok: true, prompt: still.prompt, heroPrompt: still.hero_prompt || '' });
           break;
+        }
         case 'generate-motion':
           sendResponse({ ok: true, data: await generateMotion(msg.frames, msg.duration) });
           break;

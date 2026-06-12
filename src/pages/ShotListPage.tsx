@@ -15,7 +15,8 @@ import { ShotCard } from '../components/shot/ShotCard';
 import { RecipesModal, BoardPicker } from '../components/shot/modals';
 import { ImageEditStage } from '../components/shot/ImageEditStage';
 import { FramePickInbox } from '../components/FramePickInbox';
-import { inboxCount, removeInboxItem, subscribeInbox, type InboxItem } from '../lib/framepickBridge';
+import { ConfirmDialog, type ConfirmRequest } from '../components/ConfirmDialog';
+import { inboxCount, removeInboxItem, resolveHeroPrompt, subscribeInbox, type InboxItem } from '../lib/framepickBridge';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -66,6 +67,10 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		window.setTimeout(() => setWarning(''), ms);
 	};
 
+	// Centered confirm dialog (replaces window.confirm)
+	const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null);
+	const ask = (req: ConfirmRequest) => setConfirmReq(req);
+
 	// ---- FramePick Inbox ----------------------------------------------------
 	const [inboxOpen, setInboxOpen] = useState(false);
 	const fpCount = useSyncExternalStore(subscribeInbox, inboxCount);
@@ -96,8 +101,13 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 				if (p.kind === 'composition') {
 					return { ...sh, sketchRef: { src: p.image, name: 'framepick-composition' } };
 				}
+				// motion: keyframes land in the Composition slot as guides; an empty
+				// description is seeded with the resolved @hero prompt so the shot is
+				// ready to generate immediately.
+				const seeded = (sh.description || '').trim() ? sh.description : resolveHeroPrompt(p.heroPrompt || p.videoPrompt, {});
 				return {
 					...sh,
+					description: seeded,
 					motionRef: {
 						frames: p.frames,
 						duration: p.duration,
@@ -115,9 +125,84 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		flash(
 			p.kind === 'composition'
 				? 'Composition placed — only the layout is used; your Hero stays the subject.'
-				: 'Motion structure attached — @hero resolves to the shot’s Hero slot.',
+				: 'Motion frames placed in the Composition slot — @hero resolves to the shot’s Hero.',
 			4500,
 		);
+	};
+
+	// ---- Apply @hero to Frames -----------------------------------------------
+	// Re-generates each motion keyframe with the shot's Hero swapped in as the
+	// subject — composition, camera angle, framing, lighting and motion
+	// structure preserved. Results land in the Composition strip (@hero view)
+	// and the shot's variants.
+	const [heroGen, setHeroGen] = useState<Record<string, { done: number; total: number }>>({});
+
+	const applyHeroToFrames = async (shotId: string) => {
+		const sh = scene?.shots.find((s) => s.id === shotId);
+		if (!sh || heroGen[shotId]) return;
+		const mr = sh.motionRef;
+		if (!mr?.frames?.length) return;
+		if (!sh.talentRef?.src) {
+			flash('Add a Hero reference first — “Apply @hero to Frames” swaps your Hero into each keyframe.', 5000);
+			return;
+		}
+		const prov = getProvider();
+		if (prov.provider !== 'openai') {
+			flash('Applying @hero to frames needs an OpenAI API key (set it in API keys).', 4500);
+			return;
+		}
+		const total = mr.frames.length;
+		setHeroGen((g) => ({ ...g, [shotId]: { done: 0, total } }));
+		const heroSubject = (sh.description || '').trim().slice(0, 300) || 'the HERO subject';
+		const prompt = `Replace the main subject of the COMPOSITION reference image with the HERO subject from the HERO reference image. Preserve the composition's framing, camera angle, perspective, subject placement and scale, lighting, color grade, environment and motion pose exactly — only the subject changes. The HERO subject (${heroSubject}) must keep its exact identity, colors, materials and design. Photorealistic, coherent edges and geometry, no extra elements, no text, no watermarks.`;
+		const size = sceneAspect === '1:1' ? '1024x1024' : sceneAspect === '9:16' ? '1024x1536' : '1536x1024';
+		const quality = String(imageSettings.quality || 'medium').toLowerCase();
+		const results: { t: number; src: string }[] = [];
+		try {
+			for (let i = 0; i < mr.frames.length; i++) {
+				const frame = mr.frames[i];
+				const res = await generateImage({
+					...prov,
+					prompt,
+					size,
+					quality,
+					background: 'opaque',
+					outputFormat: 'png',
+					inputImages: [
+						{ src: sh.talentRef.src, name: 'hero-subject' },
+						{ src: frame.src, name: 'composition-frame' },
+					],
+				});
+				const src = (res.image as string) || ((res.images as { src: string }[]) || [])[0]?.src || (res.url as string);
+				if (src) results.push({ t: frame.t, src });
+				setHeroGen((g) => (g[shotId] ? { ...g, [shotId]: { done: i + 1, total } } : g));
+			}
+		} catch (e) {
+			flash(`@hero frames stopped after ${results.length}/${total}: ${(e as Error).message || e}`, 6000);
+		}
+		if (results.length) {
+			onScene((s) => ({
+				...s,
+				shots: s.shots.map((x) => {
+					if (x.id !== shotId) return x;
+					const newVariants: Variant[] = results.map((r, i) => ({
+						id: `var-hero-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+						src: r.src,
+						favorite: false,
+						prompt: `@hero frame · ${r.t.toFixed(1)}s`,
+					}));
+					const variants = [...newVariants, ...(x.variants || [])];
+					const images = x.images?.length ? x.images : [{ id: `img-${Date.now()}`, src: results[0].src, originalUrl: results[0].src, name: `shot-${x.number}-hero-frame` }];
+					return { ...x, motionRef: x.motionRef ? { ...x.motionRef, heroFrames: results } : x.motionRef, variants, images };
+				}),
+			}));
+			flash(`Generated ${results.length} @hero frame${results.length === 1 ? '' : 's'} — see the Composition strip (@hero) and the shot's variants.`, 5200);
+		}
+		setHeroGen((g) => {
+			const next = { ...g };
+			delete next[shotId];
+			return next;
+		});
 	};
 
 	const describeRef = async (img: RefImage | null) => {
@@ -166,7 +251,15 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 	};
 	const renameScene = (id: string, name: string) => setScenes((prev) => prev.map((s) => (s.id === id ? { ...s, name } : s)));
 	const deleteScene = (id: string) => {
-		if (!window.confirm('Delete this scene and all its shots?')) return;
+		ask({
+			title: 'Delete scene?',
+			message: 'This scene and all of its shots will be deleted. This cannot be undone.',
+			actionLabel: 'Delete',
+			danger: true,
+			onConfirm: () => doDeleteScene(id),
+		});
+	};
+	const doDeleteScene = (id: string) => {
 		setScenes((prev) => {
 			const rest = prev.filter((s) => s.id !== id);
 			if (!rest.length) {
@@ -221,13 +314,20 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 			return { ...s, shots: arr.map((sh, i) => ({ ...sh, number: i + 1 })) };
 		});
 	const resetProject = () => {
-		if (!window.confirm('Reset entire project? This deletes all shots and cannot be undone.')) return;
-		setVisualStyle('');
-		setVisualStyleRef(null);
-		const s = newScene(1);
-		setScenes([s]);
-		setSelectedSceneId(s.id);
-		setSelected(new Set());
+		ask({
+			title: 'Reset entire project?',
+			message: 'All scenes, shots, references and the visual style will be deleted. This cannot be undone.',
+			actionLabel: 'Reset project',
+			danger: true,
+			onConfirm: () => {
+				setVisualStyle('');
+				setVisualStyleRef(null);
+				const s = newScene(1);
+				setScenes([s]);
+				setSelectedSceneId(s.id);
+				setSelected(new Set());
+			},
+		});
 	};
 
 	// Full reset of a single card: blank shot, same id + number.
@@ -260,7 +360,13 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		try {
 			const inputImages: { src: string; name: string }[] = [];
 			if (shot.talentRef?.src) inputImages.push({ src: shot.talentRef.src, name: shot.talentRef.name || 'hero-subject' });
-			if (shot.sketchRef?.src) inputImages.push({ src: shot.sketchRef.src, name: shot.sketchRef.name || 'composition-ref' });
+			if (shot.motionRef?.frames?.length) {
+				// FramePick motion guides: the middle keyframe anchors layout & scale
+				// (prefer the @hero-applied version when it exists).
+				const frames = shot.motionRef.heroFrames?.length ? shot.motionRef.heroFrames : shot.motionRef.frames;
+				const mid = frames[Math.floor(frames.length / 2)];
+				inputImages.push({ src: mid.src, name: 'composition-ref' });
+			} else if (shot.sketchRef?.src) inputImages.push({ src: shot.sketchRef.src, name: shot.sketchRef.name || 'composition-ref' });
 			// Use the verbatim override when set, otherwise the auto-assembled spec.
 			const prompt = shot.promptOverride?.trim() ? shot.promptOverride.trim() : assembleShotPrompt(visualStyle, shot, sceneAspect);
 			const size = sceneAspect === '1:1' ? '1024x1024' : sceneAspect === '9:16' ? '1024x1536' : '1536x1024';
@@ -415,9 +521,16 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		if (scene) setSelected(on ? new Set(scene.shots.map((s) => s.id)) : new Set());
 	};
 	const bulkDelete = () => {
-		if (!window.confirm(`Delete ${selected.size} shot(s)?`)) return;
-		onScene((s) => ({ ...s, shots: s.shots.filter((sh) => !selected.has(sh.id)).map((sh, i) => ({ ...sh, number: i + 1 })) }));
-		setSelected(new Set());
+		ask({
+			title: `Delete ${selected.size} shot${selected.size === 1 ? '' : 's'}?`,
+			message: 'The selected shots and their generated images will be deleted. This cannot be undone.',
+			actionLabel: 'Delete',
+			danger: true,
+			onConfirm: () => {
+				onScene((s) => ({ ...s, shots: s.shots.filter((sh) => !selected.has(sh.id)).map((sh, i) => ({ ...sh, number: i + 1 })) }));
+				setSelected(new Set());
+			},
+		});
 	};
 
 	const cols = view.startsWith('g') ? parseInt(view.slice(1), 10) : 0;
@@ -517,12 +630,24 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 								}
 								onUpdate={(patch) => updateShot(shot.id, patch)}
 								onPatchShot={(patch, clearAiKey, addAiKeys, delAiKey, delAiKeys) => patchShot(shot.id, patch, clearAiKey, addAiKeys, delAiKey, delAiKeys)}
-								onDelete={() => {
-									if (window.confirm(`Delete Shot ${String(shot.number).padStart(2, '0')}?`)) deleteShot(shot.id);
-								}}
-								onReset={() => {
-									if (window.confirm(`Reset Shot ${String(shot.number).padStart(2, '0')}? This clears its description, references, settings and generated images.`)) resetShot(shot.id);
-								}}
+								onDelete={() =>
+									ask({
+										title: `Delete Shot ${String(shot.number).padStart(2, '0')}?`,
+										message: 'The shot, its references and generated images will be deleted. This cannot be undone.',
+										actionLabel: 'Delete',
+										danger: true,
+										onConfirm: () => deleteShot(shot.id),
+									})
+								}
+								onReset={() =>
+									ask({
+										title: `Reset Shot ${String(shot.number).padStart(2, '0')}?`,
+										message: 'This clears its description, references, settings and generated images.',
+										actionLabel: 'Reset',
+										danger: true,
+										onConfirm: () => resetShot(shot.id),
+									})
+								}
 								onDuplicate={() => duplicateShot(shot)}
 								onMove={(dir) => moveShot(shot.id, dir)}
 								onEditImage={(index) => editImage(shot.id, index)}
@@ -536,6 +661,9 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 								onBranchVariant={branchVariant}
 								onPickBoardRef={(shotId, target) => setBoardPick({ target: target === 'sketch' ? 'sketch' : 'talent', shotId })}
 								onClearField={(chip) => clearField(shot.id, chip)}
+								onApplyHeroFrames={() => applyHeroToFrames(shot.id)}
+								heroBusy={!!heroGen[shot.id]}
+								heroProgress={heroGen[shot.id] ? `Applying @hero ${heroGen[shot.id].done}/${heroGen[shot.id].total}…` : undefined}
 							/>
 						))}
 						<button className="nf-add-shot-card" type="button" onClick={addShot}>
@@ -564,6 +692,7 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 			{boardPick && <BoardPicker target={boardPick.target} boardImages={boardImages} onPick={onBoardPicked} onClose={() => setBoardPick(null)} />}
 			{recipesOpen && <RecipesModal onApply={applyRecipe} onClose={() => setRecipesOpen(false)} />}
 			<FramePickInbox open={inboxOpen} onClose={() => setInboxOpen(false)} scene={scene} onApply={applyHandoff} />
+			<ConfirmDialog request={confirmReq} onClose={() => setConfirmReq(null)} />
 		</div>
 	);
 }

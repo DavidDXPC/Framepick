@@ -123,15 +123,18 @@ export interface ThumbState {
 	error: boolean;
 }
 
-// Lazily resolve an option's thumbnail: cache hit → instant; else generate when
-// `enabled` (the category is open) and an API key is present.
-export function useThumb(id: string, prompt: string, enabled: boolean): ThumbState {
-	const [state, setState] = useState<ThumbState>({ src: null, loading: false, error: false });
+// Resolve an option's thumbnail offline-first: bundled static file → previously
+// generated AI thumb (IDB) → the procedural offline library (`offline`), which
+// is instant and needs no API key. Nothing is auto-generated on open anymore;
+// `ensureThumb` stays available for explicit, user-initiated generation.
+export function useThumb(id: string, _prompt: string, enabled: boolean, offline?: string): ThumbState {
+	const [state, setState] = useState<ThumbState>({ src: offline || null, loading: false, error: false });
 	const idRef = useRef(id);
 	idRef.current = id;
 	useEffect(() => {
 		let alive = true;
-		setState({ src: null, loading: false, error: false });
+		// offline library renders immediately; upgrades below swap in richer art
+		setState({ src: offline || null, loading: false, error: false });
 		(async () => {
 			// 1) bundled static file (no key needed, identical for everyone)
 			const stat = await staticThumbUrl(id);
@@ -142,18 +145,8 @@ export function useThumb(id: string, prompt: string, enabled: boolean): ThumbSta
 			}
 			// 2) previously generated + cached in this browser
 			const cached = await getThumb(id);
-			if (!alive) return;
-			if (cached) {
-				setState({ src: cached, loading: false, error: false });
-				return;
-			}
-			// 3) generate on demand when the category is open and a key exists
-			if (!enabled) return;
-			if (getProvider().provider === 'none') return;
-			setState({ src: null, loading: true, error: false });
-			const src = await ensureThumb(id, prompt);
 			if (!alive || idRef.current !== id) return;
-			setState({ src: src || null, loading: false, error: !src });
+			if (cached) setState({ src: cached, loading: false, error: false });
 		})();
 		return () => {
 			alive = false;

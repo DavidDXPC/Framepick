@@ -185,6 +185,16 @@
     }
     .fp-pop button:hover { background: ${ACCENT}; color: #fff; }
     .fp-pop hr { border: 0; border-top: 0.5px solid rgba(255,255,255,.12); margin: 4px 2px; }
+    .fp-dd {
+      margin-left: auto; cursor: pointer;
+      border: 0.5px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: #f5f5f7;
+      font: 600 12px/1 -apple-system, system-ui, sans-serif; padding: 6px 12px; border-radius: 999px;
+      display: inline-flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums;
+      transition: background .12s ease;
+    }
+    .fp-dd:hover { background: rgba(255,255,255,.14); }
+    .fp-dd .chev { font-size: 9px; color: rgba(235,235,245,.6); }
+    .fp-pop button { min-width: 120px; }
     .fp-step { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 11px; color: rgba(235,235,245,.55); }
     .fp-step .st {
       cursor: pointer; border: 0.5px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: #f5f5f7;
@@ -481,7 +491,7 @@
     setWait('generating…', thumbHtml(dataUrl));
     const res = await sendBg({ type: 'generate-still', dataUrl });
     if (!res.ok) return showApiError(res.error);
-    renderStill(dataUrl, res.prompt);
+    renderStill(dataUrl, res.prompt, res.heroPrompt);
     addHistory('STILL', dataUrl, res.prompt);
   }
 
@@ -515,7 +525,8 @@
 
   // ----- MOTION -----
 
-  const clampFrames = (n) => Math.min(10, Math.max(2, n));
+  const clampFrames = (n) => Math.min(10, Math.max(1, n));
+  const FRAME_CHOICES = [1, 2, 4, 6, 8, 10];
 
   async function pickMotion(target, rect) {
     const settings = (await sendBg({ type: 'get-settings' })).settings || {};
@@ -1038,31 +1049,51 @@
     if (btn) copyBtnFlash(btn);
   }
 
-  function renderStill(dataUrl, prompt) {
+  function renderStill(dataUrl, prompt, heroPrompt) {
     const b = body();
     if (!b) return;
     b.dataset.mode = 'STILL';
     const fromMotion = !!derivedStill;
+    const hasHero = !!heroPrompt;
+    let promptMode = hasHero ? 'hero' : 'clip';
     b.innerHTML = `
       ${fromMotion ? '<button class="fp-back" data-act="back" title="Back to the MOTION breakdown">‹ back to MOTION</button>' : ''}
       <div class="fp-row">
         <img class="fp-thumb" src="${dataUrl}" alt="">
         <div>
           <span class="fp-chip still">STILL</span>${fromMotion ? '<span class="fp-meta">from frame ' + (derivedStill.frameIndex + 1) + '</span>' : ''}<br>
-          <span class="fp-meta">FLUX.2 prompt · ${wordCount(prompt)} words</span>
+          <span class="fp-meta" data-words></span>
         </div>
+        ${hasHero ? `<span class="fp-seg" style="margin-left:auto" title="@hero keeps the composition, lighting and grade — the subject becomes the @hero token, which nFrame resolves to its Hero slot">
+          <button class="sg${promptMode === 'clip' ? ' on' : ''}" data-p="clip">Clip</button>
+          <button class="sg${promptMode === 'hero' ? ' on' : ''}" data-p="hero">@hero</button>
+        </span>` : ''}
       </div>
-      <div class="fp-mono">${escapeHtml(prompt)}</div>
+      <div class="fp-mono" data-prompt></div>
       <div class="fp-actions">
         <button class="fp-btn" data-act="copy">Copy</button>
         <button class="fp-btn" data-act="regen" title="Regenerate">↻</button>
         <span style="flex:1"></span>
         <button class="fp-btn primary" data-act="usecomp" title="Send to nFrame as this shot's COMPOSITION reference — only the layout is used; your Hero stays the subject">Use as Composition →</button>
       </div>`;
-    b.querySelector('[data-act=copy]').addEventListener('click', (e) => copyText(prompt, e.currentTarget));
+    const promptEl = b.querySelector('[data-prompt]');
+    const wordsEl = b.querySelector('[data-words]');
+    const activePrompt = () => (promptMode === 'hero' && hasHero ? heroPrompt : prompt);
+    const renderPrompt = () => {
+      promptEl.innerHTML = escapeHtml(activePrompt()).replace(/@hero/g, '<span class="fp-token">@hero</span>');
+      wordsEl.textContent = `FLUX.2 prompt · ${wordCount(activePrompt())} words`;
+    };
+    renderPrompt();
+    b.querySelectorAll('.fp-seg .sg').forEach((sg) =>
+      sg.addEventListener('click', () => {
+        promptMode = sg.dataset.p;
+        b.querySelectorAll('.fp-seg .sg').forEach((x) => x.classList.toggle('on', x === sg));
+        renderPrompt();
+      }));
+    b.querySelector('[data-act=copy]').addEventListener('click', (e) => copyText(activePrompt(), e.currentTarget));
     b.querySelector('[data-act=regen]').addEventListener('click', regenerate);
     b.querySelector('[data-act=back]')?.addEventListener('click', backToMotion);
-    b.querySelector('[data-act=usecomp]').addEventListener('click', (e) => sendComposition(dataUrl, prompt, e.currentTarget));
+    b.querySelector('[data-act=usecomp]').addEventListener('click', (e) => sendComposition(dataUrl, prompt, heroPrompt, e.currentTarget));
   }
 
   function backToMotion() {
@@ -1095,13 +1126,8 @@
     b.innerHTML = `
       <div class="fp-row" style="margin-bottom:8px">
         <span class="fp-chip motion">MOTION</span>
-        <span class="fp-meta">${frames.length} frames · 0–${duration.toFixed(1)}s</span>
-        <span class="fp-step" title="Frames sampled per video / GIF (2–10)">
-          <button class="st" data-d="-1" ${frames.length <= 2 ? 'disabled' : ''}>‹</button>
-          <b>${frames.length}</b>
-          <button class="st" data-d="1" ${frames.length >= 10 ? 'disabled' : ''}>›</button>
-          frames
-        </span>
+        <span class="fp-meta">${frames.length} frame${frames.length === 1 ? '' : 's'} · 0–${duration.toFixed(1)}s</span>
+        <button class="fp-dd" data-act="frames" title="Frames sampled per video / GIF — pick a count and the clip resamples on the spot">${frames.length} frame${frames.length === 1 ? '' : 's'} <span class="chev">▾</span></button>
       </div>
       <div class="fp-herowrap">
         <img class="fp-hero" src="${frames[heroIdx].dataUrl}" alt="">
@@ -1152,12 +1178,11 @@
       b.querySelectorAll('.fp-tl .dot').forEach((d) => d.classList.toggle('on', Number(d.dataset.i) === i));
       if (lastCapture && lastCapture.kind === 'motion') lastCapture.selected = i;
     };
-    // stepper: resample with a new frame count
-    b.querySelectorAll('.fp-step .st').forEach((st) =>
-      st.addEventListener('click', () => {
-        const n = clampFrames(frames.length + Number(st.dataset.d));
-        if (n !== frames.length) resampleMotion(n);
-      }));
+    // frame-count dropdown: pick a count, the clip resamples on the spot
+    b.querySelector('[data-act=frames]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFramesMenu(e.currentTarget, frames.length);
+    });
     // timeline dots + strip: click = inspect/select (no API call); ⤓ = downloads
     b.querySelectorAll('.fp-tl .dot').forEach((d) => d.addEventListener('click', () => selectFrame(Number(d.dataset.i))));
     b.querySelectorAll('.fp-strip .fr[data-i]').forEach((fr) => {
@@ -1203,12 +1228,12 @@
     setTimeout(() => { btn.textContent = idleLabel; }, 2400);
   }
 
-  async function sendComposition(dataUrl, prompt, btn) {
+  async function sendComposition(dataUrl, prompt, heroPrompt, btn) {
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
     const image = await downscaleForHandoff(dataUrl, 1024);
     const res = await sendBg({
       type: 'nframe-send',
-      payload: { kind: 'composition', image, prompt, sourceUrl: location.href.slice(0, 300), ts: Date.now() },
+      payload: { kind: 'composition', image, prompt, heroPrompt: heroPrompt || '', sourceUrl: location.href.slice(0, 300), ts: Date.now() },
     });
     sendFeedback(btn, res, 'Use as Composition →');
     if (res.ok) toast(res.opened ? 'Opening nFrame Studio — composition queued for the Inbox' : 'Composition sent to nFrame — your Hero stays the subject', 3000);
@@ -1246,6 +1271,27 @@
   function closePop() {
     if (pop) { pop.remove(); pop = null; }
     document.removeEventListener('pointerdown', closePop);
+  }
+
+  // Frame-count dropdown menu (1 / 2 / 4 / 6 / 8 / 10).
+  function openFramesMenu(anchor, current) {
+    closePop();
+    pop = el('div', 'fp-pop');
+    pop.addEventListener('pointerdown', (e) => e.stopPropagation());
+    for (const n of FRAME_CHOICES) {
+      const btn = el('button', null, '');
+      btn.innerHTML = `${n} frame${n === 1 ? '' : 's'}${n === current ? ' <span style="float:right;color:#0a84ff">✓</span>' : ''}`;
+      btn.addEventListener('click', () => {
+        closePop();
+        if (n !== current) resampleMotion(n);
+      });
+      pop.appendChild(btn);
+    }
+    root.appendChild(pop);
+    const r = anchor.getBoundingClientRect();
+    pop.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8))}px`;
+    pop.style.top = `${Math.min(r.bottom + 4, window.innerHeight - pop.offsetHeight - 8)}px`;
+    setTimeout(() => document.addEventListener('pointerdown', closePop), 0);
   }
 
   function openDownloadMenu(anchor, frames, i) {
@@ -1316,13 +1362,13 @@
         setWait('generating…', thumbHtml(derivedStill.dataUrl));
         const res = await sendBg({ type: 'generate-still', dataUrl: derivedStill.dataUrl });
         if (!res.ok) return showApiError(res.error);
-        renderStill(derivedStill.dataUrl, res.prompt);
+        renderStill(derivedStill.dataUrl, res.prompt, res.heroPrompt);
         addHistory('STILL', derivedStill.dataUrl, res.prompt);
       } else if (lastCapture.kind === 'still') {
         setWait('generating…', thumbHtml(lastCapture.dataUrl));
         const res = await sendBg({ type: 'generate-still', dataUrl: lastCapture.dataUrl });
         if (!res.ok) return showApiError(res.error);
-        renderStill(lastCapture.dataUrl, res.prompt);
+        renderStill(lastCapture.dataUrl, res.prompt, res.heroPrompt);
         addHistory('STILL', lastCapture.dataUrl, res.prompt);
       } else {
         setWait('generating…', stripHtml(lastCapture.frames, lastCapture.frames.length));
@@ -1352,7 +1398,7 @@
       setWait('generating…', thumbHtml(frame.dataUrl));
       const res = await sendBg({ type: 'generate-still', dataUrl: frame.dataUrl });
       if (!res.ok) { derivedStill = null; return showApiError(res.error); }
-      renderStill(frame.dataUrl, res.prompt);
+      renderStill(frame.dataUrl, res.prompt, res.heroPrompt);
       addHistory('STILL', frame.dataUrl, res.prompt);
     } finally {
       busy = false;

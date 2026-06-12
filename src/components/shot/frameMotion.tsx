@@ -23,6 +23,7 @@ import { thumbId, thumbPrompt } from '../../data/thumbs';
 import { emptyFrame, emptyMotion } from '../../state/defaults';
 import { countFrame, countLighting, countMotion } from '../../lib/promptBuilder';
 import { useThumb } from '../../lib/thumbCache';
+import { offlineThumb } from '../../lib/thumbOffline';
 import type { Frame, Lens, Lighting, Motion, Shot } from '../../state/types';
 import { Spinner } from '../ui';
 import { AnchoredPopover, useDismiss } from './popover';
@@ -395,7 +396,7 @@ interface PickerOpt {
 }
 
 function VisualCard({ category, value, label, abbr, selected, onSelect, enabled }: { category: string; value: string; label: string; abbr?: string; selected: boolean; onSelect: (v: string) => void; enabled: boolean }) {
-	const { src, loading } = useThumb(thumbId(category, value), thumbPrompt(category, value), enabled);
+	const { src, loading } = useThumb(thumbId(category, value), thumbPrompt(category, value), enabled, offlineThumb(category, value));
 	return (
 		<button type="button" className={'nf-fs-card' + (selected ? ' selected' : '')} onClick={() => onSelect(value)} title={label} aria-pressed={selected}>
 			<span className="nf-fs-thumb" style={src ? { backgroundImage: `url("${src}")` } : undefined}>

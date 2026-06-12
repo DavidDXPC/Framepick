@@ -66,14 +66,6 @@ export function MotionRefBlock({ shot, onRemove }: { shot: Shot; onRemove: () =>
 					</button>
 				</span>
 			</div>
-			<div className="nf-motionref-strip">
-				{mr.frames.map((f, i) => (
-					<figure key={i} title={`${f.t.toFixed(1)}s — motion & layout guide only`}>
-						<img src={f.src} alt="" />
-						<figcaption>{f.t.toFixed(1)}s</figcaption>
-					</figure>
-				))}
-			</div>
 			{expanded && (
 				<div className="nf-motionref-rows">
 					{rows.map(

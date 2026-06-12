@@ -34,6 +34,9 @@ export function ShotCard({
 	onBranchVariant,
 	onPickBoardRef,
 	onClearField,
+	onApplyHeroFrames,
+	heroBusy,
+	heroProgress,
 }: {
 	shot: Shot;
 	aspectRatio: string;
@@ -58,6 +61,9 @@ export function ShotCard({
 	onBranchVariant: (shot: Shot, variant: Variant) => void;
 	onPickBoardRef?: (shotId: string, target: 'talent' | 'sketch') => void;
 	onClearField: (chip: FieldChip) => void;
+	onApplyHeroFrames?: (() => void) | null;
+	heroBusy?: boolean;
+	heroProgress?: string;
 }) {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const menuRef = useDismiss(menuOpen, setMenuOpen) as React.RefObject<HTMLDivElement>;
@@ -165,11 +171,16 @@ export function ShotCard({
 					value={shot.description}
 					talentRef={shot.talentRef}
 					sketchRef={shot.sketchRef}
+					motionRef={shot.motionRef}
 					visualStyle={visualStyle}
 					onChange={(v) => onUpdate({ description: v })}
 					onTalentRef={(img: RefImage | null) => onUpdate({ talentRef: img })}
 					onSketchRef={(img: RefImage | null) => onUpdate({ sketchRef: img })}
 					onPickBoard={onPickBoardRef ? (target) => onPickBoardRef(shot.id, target) : null}
+					onRemoveMotion={() => onUpdate({ motionRef: null })}
+					onApplyHeroFrames={onApplyHeroFrames}
+					heroBusy={heroBusy}
+					heroProgress={heroProgress}
 				/>
 				{shot.motionRef && <MotionRefBlock shot={shot} onRemove={() => onUpdate({ motionRef: null })} />}
 				<FrameMotionChips shot={shot} projectAspect={projectAspect} visualStyle={visualStyle} onPatch={onPatchShot} />
