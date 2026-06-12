@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>FramePick — Options</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; color: #f5f5f7;
+    background:
+      radial-gradient(1100px 700px at 20% -10%, #2a2a35 0%, transparent 55%),
+      radial-gradient(900px 600px at 90% 10%, #1f2a3a 0%, transparent 50%),
+      #101012;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex; justify-content: center; padding: 48px 16px;
+  }
+  .card {
+    width: 500px; background: #1f1f21;
+    border: 0.5px solid rgba(255,255,255,.1);
+    border-radius: 18px; padding: 30px 30px 26px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4), inset 0 0.5px 0 rgba(255,255,255,.08);
+  }
+  h1 { display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h1 img { width: 26px; height: 26px; border-radius: 7px; }
+  .sub { color: rgba(235,235,245,.55); font-size: 13px; margin: 0 0 26px; }
+  label { display: block; font-weight: 600; font-size: 13px; margin: 20px 0 7px; }
+  .help { color: rgba(235,235,245,.5); font-size: 12px; margin-top: 6px; }
+  .help a { color: #0a84ff; text-decoration: none; }
+  input[type=password], input[type=text], input[type=url], select {
+    width: 100%; box-sizing: border-box;
+    background: rgba(255,255,255,.06); color: #f5f5f7;
+    border: 0.5px solid rgba(255,255,255,.14);
+    border-radius: 10px; padding: 10px 12px;
+    font: 13px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  select { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+  input:focus, select:focus { outline: none; border-color: #0a84ff; box-shadow: 0 0 0 3px rgba(10,132,255,.25); }
+
+  .seg {
+    display: flex; gap: 2px; padding: 2px; margin-top: 4px;
+    background: rgba(120,120,128,.18);
+    border: 0.5px solid rgba(255,255,255,.06);
+    border-radius: 10px;
+  }
+  .seg button {
+    flex: 1; cursor: pointer; border: 0; background: transparent; color: rgba(235,235,245,.65);
+    font: 600 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    padding: 8px 0; border-radius: 8px; transition: background .14s, color .14s;
+  }
+  .seg button.active {
+    background: #5a5a5e; color: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.3), inset 0 0.5px 0 rgba(255,255,255,.18);
+  }
+
+  .provider-fields { display: none; }
+  .provider-fields.active { display: block; }
+
+  .range-row { display: flex; align-items: center; gap: 14px; }
+  input[type=range] { flex: 1; accent-color: #0a84ff; }
+  .range-val {
+    min-width: 36px; text-align: center; font-weight: 700; font-size: 15px;
+    background: rgba(255,255,255,.06); border: 0.5px solid rgba(255,255,255,.14);
+    border-radius: 9px; padding: 4px 0; font-variant-numeric: tabular-nums;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 30px; align-items: center; }
+  button.btn {
+    cursor: pointer; border: 0.5px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.08); color: #f5f5f7;
+    font: 600 12.5px -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    padding: 9px 16px; border-radius: 999px; transition: background .12s, filter .12s;
+  }
+  button.btn:hover { background: rgba(255,255,255,.14); }
+  button.btn.primary { background: #0a84ff; border-color: transparent; color: #fff; box-shadow: 0 2px 10px rgba(10,132,255,.35); }
+  button.btn.primary:hover { filter: brightness(1.1); background: #0a84ff; }
+  #status { font-size: 12.5px; }
+  #status.ok { color: #30d158; }
+  #status.err { color: #ff6961; }
+  hr { border: 0; border-top: 0.5px solid rgba(255,255,255,.1); margin: 26px 0 0; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1><img src="icons/icon48.png" alt="" />FramePick</h1>
+    <p class="sub">Pick any image, video, or GIF → get a paste-ready AI prompt — and send it straight into nFrame Studio.</p>
+
+    <label>Provider</label>
+    <div class="seg" id="seg">
+      <button type="button" data-provider="anthropic">Anthropic (Claude)</button>
+      <button type="button" data-provider="openai">OpenAI (ChatGPT)</button>
+    </div>
+
+    <!-- Anthropic -->
+    <div class="provider-fields" id="fields-anthropic">
+      <label for="apiKey">Anthropic API key</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+      <div class="help">Get a key at <a href="https://platform.claude.com/" target="_blank" rel="noreferrer">platform.claude.com</a>.</div>
+
+      <label for="model">Claude model</label>
+      <select id="model">
+        <option value="claude-opus-4-8">Claude Opus 4.8 (recommended)</option>
+        <option value="claude-fable-5">Claude Fable 5 (most capable)</option>
+        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (faster)</option>
+        <option value="claude-haiku-4-5">Claude Haiku 4.5 (cheapest)</option>
+      </select>
+    </div>
+
+    <!-- OpenAI -->
+    <div class="provider-fields" id="fields-openai">
+      <label for="openaiKey">OpenAI API key</label>
+      <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" />
+      <div class="help">Get a key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">platform.openai.com</a>.</div>
+
+      <label for="openaiModel">ChatGPT model</label>
+      <select id="openaiModel">
+        <option value="gpt-4o">GPT-4o (recommended)</option>
+        <option value="gpt-4.1">GPT-4.1 (most capable)</option>
+        <option value="gpt-4.1-mini">GPT-4.1 mini (faster)</option>
+        <option value="gpt-4o-mini">GPT-4o mini (cheapest)</option>
+      </select>
+    </div>
+
+    <div class="help" style="margin-top:6px">Keys are stored locally in your browser only, and sent only to the provider you select.</div>
+
+    <hr />
+
+    <label for="frameCount">Frames sampled per video / GIF</label>
+    <div class="range-row">
+      <input type="range" id="frameCount" min="2" max="10" step="1" value="8" />
+      <span class="range-val" id="frameVal">8</span>
+    </div>
+    <div class="help">2–10 frames, sampled evenly across the clip. More frames = better motion analysis, more tokens.</div>
+
+    <hr />
+
+    <label for="studioUrl">nFrame Studio URL</label>
+    <input type="url" id="studioUrl" placeholder="https://framepick.comprido-david.workers.dev" autocomplete="off" />
+    <div class="help">Where “Use as Composition” and “Use in nFrame” deliver their handoffs. Point it at localhost while developing.</div>
+
+    <div class="actions">
+      <button class="btn primary" id="save">Save</button>
+      <button class="btn" id="test">Test Key</button>
+      <span id="status"></span>
+    </div>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>
