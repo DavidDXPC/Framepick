@@ -24,7 +24,7 @@ The UI follows an Apple-style design language: dark translucent panels, hairline
    - STILL → thumbnail + FLUX.2 prompt, **Copy** / **↻ Regenerate**.
    - MOTION → filmstrip of sampled frames, the six-row breakdown with per-row copy, and the **VIDEO PROMPT** block.
      - **Click a frame** to inspect it large and select it (no API call). It becomes the frame used by *force STILL* and download.
-     - **‹ N ›** in the panel header changes the frame count (2–10) and resamples on the spot.
+     - The **frame-count dropdown** in the panel header (1 / 2 / 4 / 6 / 8 / 10) resamples the clip on the spot.
      - Hover a frame and hit **⤓** to download it — **original** or **black & white**, single frame or all frames.
      - **force STILL** generates a FLUX.2 prompt from the selected frame; a **‹ back to MOTION** button returns to the breakdown instantly (no regeneration).
 4. **Esc** closes the panel / exits the picker. The popup keeps the last 20 picks with one-click copy.
@@ -47,7 +47,7 @@ The UI follows an Apple-style design language: dark translucent panels, hairline
 | API key | — | Stored in `chrome.storage.local` only; sent only to the selected provider (`api.anthropic.com` or `api.openai.com`). |
 | Claude model | Claude Opus 4.8 | Fable 5 / Sonnet 4.6 / Haiku 4.5 also available. |
 | ChatGPT model | GPT-4o | GPT-4.1 / GPT-4.1 mini / GPT-4o mini also available. |
-| Frames per clip | 8 | 2–10, sampled evenly across the duration. |
+| Frames per clip | 8 | 1–10, sampled evenly across the duration. |
 
 ## Files
 
