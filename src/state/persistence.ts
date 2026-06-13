@@ -221,6 +221,44 @@ export function saveMoodboardIdb(state: MoodboardState): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
+// Shot list — IndexedDB (authoritative). localStorage (above) is only an
+// instant-paint snapshot and silently fails once references / generated
+// images / video URLs push it past its ~5MB quota; IndexedDB has orders of
+// magnitude more room, so the full project (refs, frames, prompts, previews,
+// shot settings, videos) survives reloads and tab switches.
+// ---------------------------------------------------------------------------
+export function loadShotListIdb(): Promise<ShotListState | null> {
+	return openIdb()
+		.then(
+			(db) =>
+				new Promise<ShotListState | null>((resolve) => {
+					const req = db.transaction('kv', 'readonly').objectStore('kv').get('shotList');
+					req.onsuccess = () => {
+						const raw = req.result as ShotListState | undefined;
+						resolve(raw && Array.isArray(raw.scenes) ? { ...raw, scenes: hydrateScenes(raw.scenes) } : null);
+					};
+					req.onerror = () => resolve(null);
+				}),
+		)
+		.catch(() => null);
+}
+
+export function saveShotListIdb(state: ShotListState): Promise<boolean> {
+	return openIdb()
+		.then(
+			(db) =>
+				new Promise<boolean>((resolve) => {
+					const tx = db.transaction('kv', 'readwrite');
+					tx.objectStore('kv').put(state, 'shotList');
+					tx.oncomplete = () => resolve(true);
+					tx.onerror = () => resolve(false);
+					tx.onabort = () => resolve(false);
+				}),
+		)
+		.catch(() => false);
+}
+
+// ---------------------------------------------------------------------------
 // Image helpers
 // ---------------------------------------------------------------------------
 

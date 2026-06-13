@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { icons } from '../lib/icons';
-import { loadShotList, saveShotList, getProvider, getKling, downscaleImage } from '../state/persistence';
+import { loadShotList, saveShotList, loadShotListIdb, saveShotListIdb, getProvider, getKling, downscaleImage } from '../state/persistence';
 import { dopAssist, generateImage, generateVideo, pollVideo } from '../lib/aiAssist';
 import { assembleShotPrompt, buildStoryboardHtml, shotSignature } from '../lib/promptBuilder';
 import { initialScene, newScene, newShot } from '../state/defaults';
@@ -153,11 +153,12 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		// insert. The original subject must be removed, not restyled.
 		const heroSubject = (sh.description || '').trim().split(/(?<=[.!?])\s/)[0].slice(0, 160);
 		const prompt =
-			`Edit the FIRST input image, a composition keyframe from a motion sequence: completely REMOVE its current main subject and place the subject of the SECOND input image (the HERO) in its position — matching the removed subject's placement, scale, orientation and motion pose. ` +
-			`Keep everything else from the first image exactly as it is: composition, camera angle, framing, perspective, background, environment, lighting, shadows, reflections and color grade. ` +
-			`The HERO${heroSubject ? ` (${heroSubject})` : ''} must keep its exact identity, shape, colors, materials, branding and design from the second image — do not restyle, recolor or redesign it. ` +
-			`The first image's original subject must NOT appear in the result in any form — not blended, ghosted or partially visible. The HERO is the one and only subject. ` +
-			`Photorealistic, seamless integration, coherent shadows and reflections, no extra objects, no added text, no watermarks.`;
+			`Produce exactly ONE single, full-frame photograph — never a split screen, diptych, side-by-side, before/after, collage or grid. ` +
+			`There are two input images. Image 1 is a COMPOSITION GUIDE: read ONLY its camera angle, framing, subject placement, scale, orientation and lighting direction from it. Image 2 is the HERO — the real subject. ` +
+			`Render the HERO${heroSubject ? ` (${heroSubject})` : ''} alone in that composition, matching image 1's placement and scale. The HERO must keep its exact identity, shape, colors, materials, branding and design from image 2 — do not restyle, recolor, redesign or duplicate it. There is exactly one subject. ` +
+			`Image 1 is a frame grabbed from a video, so it may contain non-photographic clutter — you must completely EXCLUDE all of it: play buttons, progress/scrub bars, timecodes, captions or subtitles, watermarks, logos, channel or site names, cursors, app icons, UI panels or controls, on-screen text, guide/grid/focus lines, and black letterbox or pillarbox bars. None of these may appear in the result. ` +
+			`Image 1's original subject must NOT appear — not blended, ghosted, reflected or partially visible. ` +
+			`Output a clean, photorealistic frame: coherent lighting, shadows and reflections, no added objects, no text, no borders, no watermarks.`;
 		const size = sceneAspect === '1:1' ? '1024x1024' : sceneAspect === '9:16' ? '1024x1536' : '1536x1024';
 		const quality = String(imageSettings.quality || 'medium').toLowerCase();
 		const results: { t: number; src: string }[] = [];
@@ -212,7 +213,36 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 	};
 
 	// ---- Generate video (Kling image → video) --------------------------------
-	const [videoGen, setVideoGen] = useState<Record<string, string>>({});
+	// Per-shot progress carries an ETA so the button can show a live countdown.
+	type VideoJob = { phase: 'submit' | 'queued' | 'render' | 'finish'; startMs: number; etaMs: number };
+	const [videoGen, setVideoGen] = useState<Record<string, VideoJob>>({});
+	// 1s heartbeat so the countdown re-renders while any video is generating.
+	const [, setVideoTick] = useState(0);
+	const videoBusy = Object.keys(videoGen).length > 0;
+	useEffect(() => {
+		if (!videoBusy) return;
+		const id = window.setInterval(() => setVideoTick((t) => t + 1), 1000);
+		return () => window.clearInterval(id);
+	}, [videoBusy]);
+
+	// Estimated render time — Kling has no ETA API, so approximate by duration
+	// and model (v3 is slower). Overestimate slightly so it lands on "Almost
+	// done…" rather than stalling at 0.
+	const estimateVideoMs = (duration: string, model: string) => {
+		const base = duration === '10' ? 300_000 : 180_000;
+		return /v3/.test(model) ? Math.round(base * 1.4) : base;
+	};
+
+	const videoLabel = (shotId: string): string | undefined => {
+		const job = videoGen[shotId];
+		if (!job) return undefined;
+		if (job.phase === 'submit') return 'Submitting…';
+		if (job.phase === 'finish') return 'Finishing…';
+		const remaining = job.etaMs - (Date.now() - job.startMs);
+		if (remaining <= 0) return 'Almost done…';
+		const total = Math.round(remaining / 1000);
+		return `Time remaining: ${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+	};
 
 	const generateShotVideo = async (shotId: string) => {
 		const sh = scene?.shots.find((s) => s.id === shotId);
@@ -239,7 +269,8 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 			return;
 		}
 		const duration = sh.motionRef && sh.motionRef.duration > 7.5 ? '10' : '5';
-		setVideoGen((g) => ({ ...g, [shotId]: 'Submitting…' }));
+		const job: VideoJob = { phase: 'submit', startMs: Date.now(), etaMs: estimateVideoMs(duration, kling.model) };
+		setVideoGen((g) => ({ ...g, [shotId]: job }));
 		try {
 			// Kling caps input at 10MB — downscale to a safe JPEG start frame.
 			const image = await downscaleImage(startImage, 1024);
@@ -253,8 +284,10 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 				aspectRatio: sceneAspect,
 				mode: 'std',
 			});
-			const label: Record<string, string> = { submitted: 'Queued…', processing: 'Rendering…', succeed: 'Finishing…' };
-			const url = await pollVideo(kling, taskId, (status) => setVideoGen((g) => (g[shotId] !== undefined ? { ...g, [shotId]: label[status] || 'Rendering…' } : g)));
+			const phaseOf = (status: string): VideoJob['phase'] => (status === 'succeed' ? 'finish' : status === 'processing' ? 'render' : 'queued');
+			const url = await pollVideo(kling, taskId, (status) =>
+				setVideoGen((g) => (g[shotId] ? { ...g, [shotId]: { ...g[shotId], phase: phaseOf(status) } } : g)),
+			);
 			updateShot(shotId, { videoUrl: url });
 			flash('Motion video ready — playing in the shot.', 4000);
 		} catch (e) {
@@ -294,11 +327,45 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		}
 	};
 
+	// Hydrate from IndexedDB once on mount (authoritative, holds the full
+	// project incl. images/videos); localStorage gave only the instant first
+	// paint. Until this completes we must NOT write to IDB or we'd clobber the
+	// saved project with the stale snapshot.
+	const hydrated = useRef(false);
 	useEffect(() => {
-		saveShotList({ visualStyle, visualStyleRef, appliedRecipeId, scenes, selectedSceneId: scene?.id || '', view } as Any);
+		let alive = true;
+		loadShotListIdb().then((idb) => {
+			if (!alive) return;
+			if (idb && Array.isArray(idb.scenes) && idb.scenes.length) {
+				setVisualStyle(idb.visualStyle || '');
+				setVisualStyleRef((idb as Any).visualStyleRef || null);
+				setAppliedRecipeId((idb as Any).appliedRecipeId || '');
+				setScenes(idb.scenes);
+				setSelectedSceneId(idb.selectedSceneId || idb.scenes[0].id);
+				if (idb.view) setView(idb.view);
+			} else {
+				// first run on IDB — migrate whatever localStorage had into it
+				saveShotListIdb({ visualStyle, visualStyleRef, appliedRecipeId, scenes, selectedSceneId: scene?.id || '', view } as Any);
+			}
+			hydrated.current = true;
+		});
+		return () => {
+			alive = false;
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	useEffect(() => {
+		const state = { visualStyle, visualStyleRef, appliedRecipeId, scenes, selectedSceneId: scene?.id || '', view } as Any;
+		saveShotList(state); // small instant-paint snapshot (may no-op past quota)
+		if (!hydrated.current) return; // don't overwrite IDB before hydration
 		setSavedFlash(true);
-		const t = setTimeout(() => setSavedFlash(false), 1000);
-		return () => clearTimeout(t);
+		const save = setTimeout(() => saveShotListIdb(state), 250); // debounced full save
+		const flashOff = setTimeout(() => setSavedFlash(false), 1000);
+		return () => {
+			clearTimeout(save);
+			clearTimeout(flashOff);
+		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [visualStyle, visualStyleRef, appliedRecipeId, scenes, selectedSceneId, scene?.id, view]);
 
@@ -705,7 +772,7 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 								heroProgress={heroGen[shot.id] ? `Applying @hero ${heroGen[shot.id].done}/${heroGen[shot.id].total}…` : undefined}
 								onGenerateVideo={() => generateShotVideo(shot.id)}
 								videoBusy={videoGen[shot.id] !== undefined}
-								videoStatus={videoGen[shot.id]}
+								videoStatus={videoLabel(shot.id)}
 							/>
 						))}
 						<button className="nf-add-shot-card" type="button" onClick={addShot}>
