@@ -122,7 +122,6 @@ export function Toolbar({
 	view,
 	setView,
 	onAddShot,
-	onToggleSidebar,
 	savedFlash,
 	onPrint,
 	onDownloadHtml,
@@ -133,7 +132,6 @@ export function Toolbar({
 	view: string;
 	setView: (v: string) => void;
 	onAddShot: () => void;
-	onToggleSidebar: () => void;
 	savedFlash: boolean;
 	onPrint: () => void;
 	onDownloadHtml: () => void;
@@ -141,13 +139,10 @@ export function Toolbar({
 	return (
 		<div className="nf-shot-toolbar">
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-				<button type="button" className="nf-toolbar-btn icon-only" onClick={onToggleSidebar} title="Toggle sidebar">
-					{icons.sidebar}
-				</button>
 				<div>
 					<h1>Shooting List and Storyboard</h1>
 					<p>
-						{scene ? `${scene.name} · ${scene.shots.length} ${scene.shots.length === 1 ? 'shot' : 'shots'}` : 'No scene'}
+						{scene ? `${scene.shots.length} ${scene.shots.length === 1 ? 'shot' : 'shots'}` : 'No shots'}
 						{savedFlash && <span className="nf-saved-pip" title="All changes saved" />}
 					</p>
 				</div>

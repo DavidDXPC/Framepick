@@ -136,8 +136,10 @@ export function saveApiKeys(keys: ApiKeys): void {
 // Kling credentials for video generation, or null when not configured.
 export function getKling(): { accessKey: string; secretKey: string; model: string } | null {
 	const k = loadApiKeys();
-	const accessKey = (k.klingAccessKey || '').trim();
-	const secretKey = (k.klingSecretKey || '').trim();
+	// strip ALL whitespace — keys are alphanumeric, and a pasted space/newline
+	// is the usual cause of Kling "signature invalid".
+	const accessKey = (k.klingAccessKey || '').replace(/\s+/g, '');
+	const secretKey = (k.klingSecretKey || '').replace(/\s+/g, '');
 	if (!accessKey || !secretKey) return null;
 	return { accessKey, secretKey, model: (k.klingModel || 'kling-v3').trim() };
 }

@@ -8,7 +8,6 @@ import { mergeRecipeFrame } from '../lib/recipeApply';
 import type { FieldChip, ImageSettings, MoodItem, RefImage, Scene, Shot, Variant } from '../state/types';
 import { RECIPES, type Recipe } from '../data/recipes';
 import { Card, PrimaryBtn } from '../components/ui';
-import { ScenesSidebar } from '../components/shot/ScenesSidebar';
 import { Toolbar } from '../components/shot/Toolbar';
 import { SectionA } from '../components/shot/SectionA';
 import { ShotCard } from '../components/shot/ShotCard';
@@ -33,7 +32,6 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 	const [scenes, setScenes] = useState<Scene[]>(() => (loaded?.scenes?.length ? loaded.scenes : [initialScene()]));
 	const [selectedSceneId, setSelectedSceneId] = useState(() => loaded?.selectedSceneId || loaded?.scenes?.[0]?.id || '');
 	const [view, setView] = useState(() => loaded?.view || 'g3');
-	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [savedFlash, setSavedFlash] = useState(false);
 	const [editTarget, setEditTarget] = useState<{ shotId: string; imageIndex: number } | null>(null);
@@ -314,28 +312,6 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		setScenes((prev) => [...prev, s]);
 		setSelectedSceneId(s.id);
 	};
-	const renameScene = (id: string, name: string) => setScenes((prev) => prev.map((s) => (s.id === id ? { ...s, name } : s)));
-	const deleteScene = (id: string) => {
-		ask({
-			title: 'Delete scene?',
-			message: 'This scene and all of its shots will be deleted. This cannot be undone.',
-			actionLabel: 'Delete',
-			danger: true,
-			onConfirm: () => doDeleteScene(id),
-		});
-	};
-	const doDeleteScene = (id: string) => {
-		setScenes((prev) => {
-			const rest = prev.filter((s) => s.id !== id);
-			if (!rest.length) {
-				const s = newScene(1);
-				setSelectedSceneId(s.id);
-				return [s];
-			}
-			if (id === selectedSceneId) setSelectedSceneId(rest[0].id);
-			return rest;
-		});
-	};
 	const addShot = () => onScene((s) => ({ ...s, shots: [...s.shots, newShot(s.shots.length + 1)] }));
 	const updateShot = (id: string, patch: Partial<Shot>) => onScene((s) => ({ ...s, shots: s.shots.map((sh) => (sh.id !== id ? sh : { ...sh, ...patch })) }));
 
@@ -605,10 +581,7 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 	const allSelected = !!scene && scene.shots.length > 0 && scene.shots.every((s) => selected.has(s.id));
 
 	return (
-		<div className="nf-shot-page" style={{ gridTemplateColumns: sidebarOpen ? '232px minmax(0, 1fr)' : 'minmax(0, 1fr)' }}>
-			{sidebarOpen && (
-				<ScenesSidebar scenes={scenes} selectedSceneId={scene?.id || ''} onSelect={setSelectedSceneId} onAdd={addScene} onRename={renameScene} onDelete={deleteScene} />
-			)}
+		<div className="nf-shot-page" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
 			<main className="nf-shot-main">
 				<Toolbar
 					scene={scene}
@@ -617,7 +590,6 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 					view={view}
 					setView={setView}
 					onAddShot={addShot}
-					onToggleSidebar={() => setSidebarOpen((o) => !o)}
 					savedFlash={savedFlash}
 					onPrint={printStoryboard}
 					onDownloadHtml={downloadHtml}
@@ -652,7 +624,6 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 					onReset={resetProject}
 					onPickBoard={() => setBoardPick({ target: 'style' })}
 					onRecipes={() => setRecipesOpen(true)}
-					onHelp={() => setCoach(true)}
 				/>
 				{warning && <div className="nf-warning">{warning}</div>}
 				<div className="nf-timeline-head">

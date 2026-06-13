@@ -289,10 +289,22 @@ async function signKlingJwt(accessKey: string, secretKey: string): Promise<strin
 }
 
 async function klingAuth(body: Record<string, any>): Promise<string> {
-	const accessKey = String(body.klingAccessKey || '').trim();
-	const secretKey = String(body.klingSecretKey || '').trim();
+	// Kling keys are alphanumeric with no internal whitespace, so strip ALL
+	// whitespace — this defuses the #1 cause of "signature invalid": a stray
+	// space or newline pasted into the key field.
+	const accessKey = String(body.klingAccessKey || '').replace(/\s+/g, '');
+	const secretKey = String(body.klingSecretKey || '').replace(/\s+/g, '');
 	if (!accessKey || !secretKey) throw new Error('NO_KLING_KEY');
 	return signKlingJwt(accessKey, secretKey);
+}
+
+// Friendlier message for Kling auth failures — point the user at the key field.
+function klingError(data: any, status: number): Response {
+	const msg = data?.message || `Kling error (${status})`;
+	const hint = /signature|invalid|auth|token|expired/i.test(msg)
+		? `${msg} — re-check your Kling Access Key and Secret Key in API keys (copy each exactly, with no extra spaces).`
+		: msg;
+	return json({ error: hint }, status >= 400 ? status : 502);
 }
 
 async function handleGenerateVideo(body: Record<string, any>): Promise<Response> {
@@ -325,9 +337,7 @@ async function handleGenerateVideo(body: Record<string, any>): Promise<Response>
 		body: JSON.stringify(payload),
 	});
 	const data = (await r.json().catch(() => ({}))) as any;
-	if (!r.ok || data?.code !== 0) {
-		return json({ error: data?.message || `Kling error (${r.status})` }, r.ok ? 502 : r.status);
-	}
+	if (!r.ok || data?.code !== 0) return klingError(data, r.status);
 	return json({ taskId: data?.data?.task_id });
 }
 
@@ -344,9 +354,7 @@ async function handleVideoStatus(body: Record<string, any>): Promise<Response> {
 		headers: { Authorization: `Bearer ${token}` },
 	});
 	const data = (await r.json().catch(() => ({}))) as any;
-	if (!r.ok || data?.code !== 0) {
-		return json({ error: data?.message || `Kling error (${r.status})` }, r.ok ? 502 : r.status);
-	}
+	if (!r.ok || data?.code !== 0) return klingError(data, r.status);
 	const status = data?.data?.task_status as string; // submitted | processing | succeed | failed
 	const videoUrl = data?.data?.task_result?.videos?.[0]?.url || '';
 	return json({ status, videoUrl, message: data?.data?.task_status_msg || '' });

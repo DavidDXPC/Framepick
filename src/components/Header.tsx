@@ -42,12 +42,7 @@ export function Header({
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 6 }}>
 				<FramePickLogo size={24} tile />
-				<span style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-					<span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)' }}>FramePick</span>
-					<span className="serif" style={{ fontSize: 15, color: 'var(--muted)' }}>
-						Studio
-					</span>
-				</span>
+				<span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)' }}>FramePick</span>
 			</div>
 
 			<nav

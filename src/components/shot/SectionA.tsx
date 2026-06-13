@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { icons } from '../../lib/icons';
 import type { RefImage } from '../../state/types';
 import { Spinner } from '../ui';
@@ -15,7 +14,6 @@ export function SectionA({
 	onReset,
 	onPickBoard,
 	onRecipes,
-	onHelp,
 }: {
 	value: string;
 	onChange: (v: string) => void;
@@ -25,19 +23,12 @@ export function SectionA({
 	onReset: () => void;
 	onPickBoard?: (() => void) | null;
 	onRecipes?: () => void;
-	onHelp?: () => void;
 }) {
-	const [info, setInfo] = useState(false);
 	return (
 		<section className="nf-vs-card">
 			<div className="nf-vs-head">
 				<span className="nf-section-label">Section A — Visual Style</span>
 				<div className="nf-vs-head-actions">
-					{onHelp && (
-						<button type="button" className="nf-vs-reset" onClick={onHelp} title="Show the 3-step guide">
-							?
-						</button>
-					)}
 					{onRecipes && (
 						<button type="button" className="nf-vs-reset nf-vs-recipes" onClick={onRecipes}>
 							{icons.wand}
@@ -66,18 +57,10 @@ export function SectionA({
 						</div>
 					)}
 					<div className="nf-vs-tools">
-						<button type="button" className="nf-vs-info" title="What does this control?" onClick={() => setInfo((v) => !v)}>
-							{icons.info}
-						</button>
 						<EnhancePill fieldLabel="Visual Style" value={value} visualStyle={value} onResult={onChange} compact />
 					</div>
 				</div>
 			</div>
-			{info && (
-				<div className="nf-vs-info-pop">
-					The project's look — its <b>lighting register and color grade</b>, applied to every shot. Upload a reference and it auto-describes that look here; the text and reference cascade into every generated image. (The <b>subject</b> comes from each shot's Description + Hero; the <b>composition</b> from the Composition reference + Frame tools.)
-				</div>
-			)}
 		</section>
 	);
 }

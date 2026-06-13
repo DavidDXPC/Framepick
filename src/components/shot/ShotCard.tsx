@@ -196,11 +196,6 @@ export function ShotCard({
 				<div className="nf-card-action">
 					<div className="nf-gen-controls">
 						<VariantCount value={imageSettings.variations} onChange={(n) => onImageSettings({ ...imageSettings, variations: n })} />
-						<button type="button" className={primary ? 'nf-primary-btn nf-gen-action' : 'nf-toolbar-btn nf-gen-action'} disabled={shot.generating} onClick={onGenerate}>
-							{shot.generating ? <Spinner size={13} /> : null}
-							<span>{shot.generating ? 'Generating…' : genLabel}</span>
-							{!shot.generating && <span className="nf-gen-arrow">→</span>}
-						</button>
 						<button
 							type="button"
 							className={'nf-icon-button' + (shot.promptOverride?.trim() ? ' nf-imgset-gear' : '')}
@@ -211,6 +206,11 @@ export function ShotCard({
 							{icons.list}
 						</button>
 						<ImageSettings settings={imageSettings} onChange={onImageSettings} aspectRatio={aspectRatio} />
+						<button type="button" className={primary ? 'nf-primary-btn nf-gen-action' : 'nf-toolbar-btn nf-gen-action'} disabled={shot.generating} onClick={onGenerate}>
+							{shot.generating ? <Spinner size={13} /> : null}
+							<span>{shot.generating ? 'Generating…' : genLabel}</span>
+							{!shot.generating && <span className="nf-gen-arrow">→</span>}
+						</button>
 					</div>
 				</div>
 				{chips.length > 0 && (
