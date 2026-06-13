@@ -263,6 +263,95 @@ async function handleDopAssist(body: Record<string, any>): Promise<Response> {
 	return json({ text });
 }
 
+// ---------------------------------------------------------------------------
+// Kling (Kuaishou) image-to-video — https://api-singapore.klingai.com
+// Auth: a per-request HS256 JWT signed with the Secret Key (iss = Access Key,
+// exp = now + 30min, nbf = now − 5s). Keys travel per-request from the client;
+// they are never stored in the bundle.
+// ---------------------------------------------------------------------------
+const KLING_HOST = 'https://api-singapore.klingai.com';
+
+function b64url(bytes: Uint8Array): string {
+	let s = '';
+	for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+	return btoa(s).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+async function signKlingJwt(accessKey: string, secretKey: string): Promise<string> {
+	const enc = new TextEncoder();
+	const now = Math.floor(Date.now() / 1000);
+	const header = b64url(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+	const payload = b64url(enc.encode(JSON.stringify({ iss: accessKey, exp: now + 1800, nbf: now - 5 })));
+	const data = `${header}.${payload}`;
+	const key = await crypto.subtle.importKey('raw', enc.encode(secretKey), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+	const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data));
+	return `${data}.${b64url(new Uint8Array(sig))}`;
+}
+
+async function klingAuth(body: Record<string, any>): Promise<string> {
+	const accessKey = String(body.klingAccessKey || '').trim();
+	const secretKey = String(body.klingSecretKey || '').trim();
+	if (!accessKey || !secretKey) throw new Error('NO_KLING_KEY');
+	return signKlingJwt(accessKey, secretKey);
+}
+
+async function handleGenerateVideo(body: Record<string, any>): Promise<Response> {
+	let token: string;
+	try {
+		token = await klingAuth(body);
+	} catch {
+		return json({ error: 'Add your Kling Access Key and Secret Key in API keys to generate video.' }, 400);
+	}
+	const image = String(body.image || '');
+	if (!image) return json({ error: 'A start image is required to animate (generate a still or attach a Hero first).' }, 400);
+	// Kling wants raw base64 (no data: prefix) or a URL.
+	const imageField = image.startsWith('data:') ? image.slice(image.indexOf(',') + 1) : image;
+	const duration = body.duration === '10' || body.duration === 10 ? '10' : '5';
+	const aspect = pick(body.aspectRatio, ['16:9', '9:16', '1:1'], '16:9');
+	const payload: Record<string, unknown> = {
+		model_name: String(body.model || 'kling-v3'),
+		image: imageField,
+		prompt: String(body.prompt || '').slice(0, 2500),
+		mode: body.mode === 'pro' ? 'pro' : 'std',
+		duration,
+		aspect_ratio: aspect,
+		cfg_scale: typeof body.cfgScale === 'number' ? body.cfgScale : 0.5,
+	};
+	if (body.negativePrompt) payload.negative_prompt = String(body.negativePrompt).slice(0, 2500);
+
+	const r = await fetch(`${KLING_HOST}/v1/videos/image2video`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+		body: JSON.stringify(payload),
+	});
+	const data = (await r.json().catch(() => ({}))) as any;
+	if (!r.ok || data?.code !== 0) {
+		return json({ error: data?.message || `Kling error (${r.status})` }, r.ok ? 502 : r.status);
+	}
+	return json({ taskId: data?.data?.task_id });
+}
+
+async function handleVideoStatus(body: Record<string, any>): Promise<Response> {
+	let token: string;
+	try {
+		token = await klingAuth(body);
+	} catch {
+		return json({ error: 'Missing Kling credentials.' }, 400);
+	}
+	const taskId = String(body.taskId || '').trim();
+	if (!taskId) return json({ error: 'Missing task id.' }, 400);
+	const r = await fetch(`${KLING_HOST}/v1/videos/image2video/${encodeURIComponent(taskId)}`, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
+	const data = (await r.json().catch(() => ({}))) as any;
+	if (!r.ok || data?.code !== 0) {
+		return json({ error: data?.message || `Kling error (${r.status})` }, r.ok ? 502 : r.status);
+	}
+	const status = data?.data?.task_status as string; // submitted | processing | succeed | failed
+	const videoUrl = data?.data?.task_result?.videos?.[0]?.url || '';
+	return json({ status, videoUrl, message: data?.data?.task_status_msg || '' });
+}
+
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
@@ -277,6 +366,8 @@ export default {
 			try {
 				if (url.pathname === '/api/generate-image') return await handleGenerateImage(body);
 				if (url.pathname === '/api/dop-assist') return await handleDopAssist(body);
+				if (url.pathname === '/api/generate-video') return await handleGenerateVideo(body);
+				if (url.pathname === '/api/video-status') return await handleVideoStatus(body);
 				return json({ error: 'Not found' }, 404);
 			} catch (e) {
 				return json({ error: (e as Error).message || 'Server error' }, 500);

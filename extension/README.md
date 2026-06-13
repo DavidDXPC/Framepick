@@ -1,9 +1,9 @@
 # FramePick (extension)
 
-Click any image, video, or GIF on a page → get a paste-ready AI prompt — and send it straight into **nFrame Studio**.
+Click any image, video, or GIF on a page → get a paste-ready AI prompt — and send it straight into **FramePick Studio**.
 
-- **STILL** (images): generates a FLUX.2-ready image-generation prompt. **Use as Composition →** sends the image to nFrame as a composition reference (layout only — the shot's Hero stays the subject).
-- **MOTION** (videos & GIFs): samples 2–10 frames evenly across the clip and generates a structured motion breakdown (SHOT · COMPOSITION · CAMERA MOVEMENT · SCENE ACTION · EVOLUTION · LIGHT & GRADE) plus **two** paste-ready video prompts: the original **Clip** prompt and the **@hero** prompt, where the subject is replaced by the literal token `@hero` (resolved by nFrame to its Hero slot). **Use in nFrame →** ships keyframes + breakdown + prompts to the studio's Inbox.
+- **STILL** (images): generates a FLUX.2-ready image-generation prompt. **Use as Composition →** sends the image to FramePick Studio as a composition reference (layout only — the shot's Hero stays the subject).
+- **MOTION** (videos & GIFs): samples 2–10 frames evenly across the clip and generates a structured motion breakdown (SHOT · COMPOSITION · CAMERA MOVEMENT · SCENE ACTION · EVOLUTION · LIGHT & GRADE) plus **two** paste-ready video prompts: the original **Clip** prompt and the **@hero** prompt, where the subject is replaced by the literal token `@hero` (resolved by FramePick Studio to its Hero slot). **Use in FramePick Studio →** ships keyframes + breakdown + prompts to the studio's Inbox.
 
 Powered by your choice of the **Anthropic Claude API** or the **OpenAI (ChatGPT) API** — both via vision. You bring your own API key.
 

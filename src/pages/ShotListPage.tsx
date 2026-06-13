@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { icons } from '../lib/icons';
-import { loadShotList, saveShotList, getProvider, downscaleImage } from '../state/persistence';
-import { dopAssist, generateImage } from '../lib/aiAssist';
+import { loadShotList, saveShotList, getProvider, getKling, downscaleImage } from '../state/persistence';
+import { dopAssist, generateImage, generateVideo, pollVideo } from '../lib/aiAssist';
 import { assembleShotPrompt, buildStoryboardHtml, shotSignature } from '../lib/promptBuilder';
 import { initialScene, newScene, newShot } from '../state/defaults';
 import { mergeRecipeFrame } from '../lib/recipeApply';
@@ -16,7 +16,7 @@ import { RecipesModal, BoardPicker } from '../components/shot/modals';
 import { ImageEditStage } from '../components/shot/ImageEditStage';
 import { FramePickInbox } from '../components/FramePickInbox';
 import { ConfirmDialog, type ConfirmRequest } from '../components/ConfirmDialog';
-import { inboxCount, removeInboxItem, subscribeInbox, type InboxItem } from '../lib/framepickBridge';
+import { inboxCount, removeInboxItem, resolveHeroPrompt, subscribeInbox, type InboxItem } from '../lib/framepickBridge';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -211,6 +211,63 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 			delete next[shotId];
 			return next;
 		});
+	};
+
+	// ---- Generate video (Kling image → video) --------------------------------
+	const [videoGen, setVideoGen] = useState<Record<string, string>>({});
+
+	const generateShotVideo = async (shotId: string) => {
+		const sh = scene?.shots.find((s) => s.id === shotId);
+		if (!sh || videoGen[shotId]) return;
+		const kling = getKling();
+		if (!kling) {
+			flash('Add your Kling Access Key and Secret Key in API keys to generate video.', 5000);
+			return;
+		}
+		// Start frame: the generated still (Hero already composed) → an @hero
+		// keyframe → the Hero reference itself.
+		const startImage = sh.images?.[0]?.src || sh.motionRef?.heroFrames?.[0]?.src || sh.talentRef?.src;
+		if (!startImage) {
+			flash('Generate a still or attach a Hero first — Kling animates a start image.', 5000);
+			return;
+		}
+		// Prompt: the resolved @hero motion prompt, else the written description.
+		const motionPrompt = sh.motionRef?.heroPrompt || sh.motionRef?.videoPrompt || '';
+		const prompt = motionPrompt
+			? resolveHeroPrompt(motionPrompt, { description: sh.description, hasHeroRef: !!sh.talentRef?.src })
+			: (sh.description || '').trim();
+		if (!prompt) {
+			flash('Add a description or a motion prompt to guide the video.', 4500);
+			return;
+		}
+		const duration = sh.motionRef && sh.motionRef.duration > 7.5 ? '10' : '5';
+		setVideoGen((g) => ({ ...g, [shotId]: 'Submitting…' }));
+		try {
+			// Kling caps input at 10MB — downscale to a safe JPEG start frame.
+			const image = await downscaleImage(startImage, 1024);
+			const taskId = await generateVideo({
+				accessKey: kling.accessKey,
+				secretKey: kling.secretKey,
+				model: kling.model,
+				image,
+				prompt,
+				duration,
+				aspectRatio: sceneAspect,
+				mode: 'std',
+			});
+			const label: Record<string, string> = { submitted: 'Queued…', processing: 'Rendering…', succeed: 'Finishing…' };
+			const url = await pollVideo(kling, taskId, (status) => setVideoGen((g) => (g[shotId] !== undefined ? { ...g, [shotId]: label[status] || 'Rendering…' } : g)));
+			updateShot(shotId, { videoUrl: url });
+			flash('Motion video ready — playing in the shot.', 4000);
+		} catch (e) {
+			flash(`Video generation failed: ${(e as Error).message || e}`, 6000);
+		} finally {
+			setVideoGen((g) => {
+				const next = { ...g };
+				delete next[shotId];
+				return next;
+			});
+		}
 	};
 
 	const describeRef = async (img: RefImage | null) => {
@@ -568,7 +625,7 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 				{coach && (
 					<div className="nf-coach">
 						<div className="nf-coach-main">
-							<strong>Welcome to nFrame — 3 steps to your first shot</strong>
+							<strong>Welcome to FramePick Studio — 3 steps to your first shot</strong>
 							<ol>
 								<li>
 									<b>Set the Visual Style</b> in Section A (or pick a Recipe) — the lighting &amp; color grade for every shot.
@@ -675,6 +732,9 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 								onApplyHeroFrames={() => applyHeroToFrames(shot.id)}
 								heroBusy={!!heroGen[shot.id]}
 								heroProgress={heroGen[shot.id] ? `Applying @hero ${heroGen[shot.id].done}/${heroGen[shot.id].total}…` : undefined}
+								onGenerateVideo={() => generateShotVideo(shot.id)}
+								videoBusy={videoGen[shot.id] !== undefined}
+								videoStatus={videoGen[shot.id]}
 							/>
 						))}
 						<button className="nf-add-shot-card" type="button" onClick={addShot}>

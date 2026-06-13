@@ -104,6 +104,11 @@ function CompositionFrames({
 	heroProgress,
 	onApplyHero,
 	onRemove,
+	videoUrl,
+	videoBusy,
+	videoStatus,
+	onGenerateVideo,
+	onRemoveVideo,
 }: {
 	motionRef: MotionRef;
 	description?: string;
@@ -112,6 +117,11 @@ function CompositionFrames({
 	heroProgress?: string;
 	onApplyHero?: (() => void) | null;
 	onRemove: () => void;
+	videoUrl?: string;
+	videoBusy?: boolean;
+	videoStatus?: string;
+	onGenerateVideo?: (() => void) | null;
+	onRemoveVideo?: () => void;
 }) {
 	const hasHeroFrames = !!motionRef.heroFrames?.length;
 	const [view, setView] = useState<'src' | 'hero'>(hasHeroFrames ? 'hero' : 'src');
@@ -166,43 +176,62 @@ function CompositionFrames({
 				))}
 			</div>
 			{prompt && (
-				<div
-					className={'nf-comp-prompt' + (expanded ? ' expanded' : '')}
-					role="button"
-					tabIndex={0}
-					aria-expanded={expanded}
-					title={expanded ? 'Click to collapse' : 'Click to expand'}
-					onClick={() => {
-						// don't steal a text selection — only toggle on plain clicks
-						if (window.getSelection()?.toString()) return;
-						setExpanded((e) => !e);
-					}}
-					onKeyDown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							setExpanded((x) => !x);
-						}
-					}}
-				>
-					<HeroPromptText prompt={prompt} />
+				<div className="nf-comp-promptwrap">
+					<div
+						className={'nf-comp-prompt' + (expanded ? ' expanded' : '')}
+						role="button"
+						tabIndex={0}
+						aria-expanded={expanded}
+						title={expanded ? 'Click to collapse' : 'Click to expand'}
+						onClick={() => {
+							// don't steal a text selection — only toggle on plain clicks
+							if (window.getSelection()?.toString()) return;
+							setExpanded((e) => !e);
+						}}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								setExpanded((x) => !x);
+							}
+						}}
+					>
+						<HeroPromptText prompt={prompt} />
+					</div>
+					<button type="button" className="nf-comp-copy" title="Copy the video prompt with @hero resolved to this shot's Hero" onClick={copyResolved}>
+						{copied ? '✓' : icons.copy}
+					</button>
+				</div>
+			)}
+			{videoUrl && (
+				<div className="nf-comp-video">
+					<video src={videoUrl} controls playsInline preload="metadata" />
+					<button type="button" className="nf-comp-video-x" title="Remove video" onClick={() => onRemoveVideo?.()}>
+						{icons.x}
+					</button>
 				</div>
 			)}
 			<div className="nf-comp-foot">
 				<span className="nf-comp-hint">{hasHeroRef ? '@hero → your Hero reference' : description?.trim() ? '@hero → your description' : 'Add a Hero or description to resolve @hero'}</span>
-				{prompt && (
-					<button type="button" className="nf-comp-copy" title="Copy the video prompt with @hero resolved to this shot's Hero" onClick={copyResolved}>
-						{copied ? 'Copied ✓' : 'Copy prompt'}
-					</button>
-				)}
 				{onApplyHero && (
 					<button
 						type="button"
-						className="nf-comp-apply"
-						disabled={!!heroBusy}
+						className="nf-comp-btn"
+						disabled={!!heroBusy || !!videoBusy}
 						title="Generate new composition frames with your Hero as the subject — composition, camera angle, framing, lighting and motion structure are preserved."
 						onClick={onApplyHero}
 					>
 						{heroBusy ? heroProgress || 'Applying @hero…' : 'Apply @hero to Frames'}
+					</button>
+				)}
+				{onGenerateVideo && (
+					<button
+						type="button"
+						className="nf-comp-btn primary"
+						disabled={!!videoBusy || !!heroBusy}
+						title="Animate this shot with Kling — the @hero prompt drives the motion from your generated still"
+						onClick={onGenerateVideo}
+					>
+						{videoBusy ? videoStatus || 'Generating…' : videoUrl ? 'Regenerate video' : 'Generate video'}
 					</button>
 				)}
 			</div>
@@ -225,6 +254,11 @@ export function DescriptionBlock({
 	onApplyHeroFrames,
 	heroBusy,
 	heroProgress,
+	videoUrl,
+	videoBusy,
+	videoStatus,
+	onGenerateVideo,
+	onRemoveVideo,
 }: {
 	value: string;
 	visualStyle?: string;
@@ -239,6 +273,11 @@ export function DescriptionBlock({
 	onApplyHeroFrames?: (() => void) | null;
 	heroBusy?: boolean;
 	heroProgress?: string;
+	videoUrl?: string;
+	videoBusy?: boolean;
+	videoStatus?: string;
+	onGenerateVideo?: (() => void) | null;
+	onRemoveVideo?: () => void;
 }) {
 	return (
 		<div className="nf-description">
@@ -259,6 +298,11 @@ export function DescriptionBlock({
 						heroProgress={heroProgress}
 						onApplyHero={onApplyHeroFrames}
 						onRemove={() => onRemoveMotion?.()}
+						videoUrl={videoUrl}
+						videoBusy={videoBusy}
+						videoStatus={videoStatus}
+						onGenerateVideo={onGenerateVideo}
+						onRemoveVideo={onRemoveVideo}
 					/>
 				) : (
 					<RefThumb

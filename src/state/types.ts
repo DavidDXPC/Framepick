@@ -122,6 +122,8 @@ export interface Shot {
 	// Optional verbatim prompt override; when set, it is sent as-is instead of
 	// the auto-assembled spec.
 	promptOverride?: string;
+	// Kling-generated motion preview for this shot.
+	videoUrl?: string;
 	lastGeneratedSig: string;
 	generating: boolean;
 	error: string;
@@ -180,6 +182,10 @@ export interface MoodView {
 export interface ApiKeys {
 	openai: string;
 	anthropic: string;
+	// Kling (Kuaishou) video generation — Access Key / Secret Key pair + model.
+	klingAccessKey?: string;
+	klingSecretKey?: string;
+	klingModel?: string;
 }
 
 // Tweaks (palette / density / material)

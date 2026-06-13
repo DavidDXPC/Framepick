@@ -1,4 +1,4 @@
-// FramePick — popup: picker toggle + session history + nFrame Studio link
+// FramePick — popup: picker toggle + session history + FramePick Studio link
 
 const $ = (id) => document.getElementById(id);
 const STUDIO_FALLBACK = 'https://framepick.comprido-david.workers.dev';

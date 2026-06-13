@@ -113,15 +113,33 @@ const API_KEYS_KEY = 'dop:apiKeys';
 export function loadApiKeys(): ApiKeys {
 	try {
 		const raw = localStorage.getItem(API_KEYS_KEY);
-		if (raw) return { openai: '', anthropic: '', ...JSON.parse(raw) };
+		if (raw) return { openai: '', anthropic: '', klingModel: 'kling-v3', ...JSON.parse(raw) };
 	} catch {
 		/* ignore */
 	}
-	return { openai: '', anthropic: '' };
+	return { openai: '', anthropic: '', klingModel: 'kling-v3' };
 }
 
 export function saveApiKeys(keys: ApiKeys): void {
-	localStorage.setItem(API_KEYS_KEY, JSON.stringify({ openai: keys.openai || '', anthropic: keys.anthropic || '' }));
+	localStorage.setItem(
+		API_KEYS_KEY,
+		JSON.stringify({
+			openai: keys.openai || '',
+			anthropic: keys.anthropic || '',
+			klingAccessKey: keys.klingAccessKey || '',
+			klingSecretKey: keys.klingSecretKey || '',
+			klingModel: keys.klingModel || 'kling-v3',
+		}),
+	);
+}
+
+// Kling credentials for video generation, or null when not configured.
+export function getKling(): { accessKey: string; secretKey: string; model: string } | null {
+	const k = loadApiKeys();
+	const accessKey = (k.klingAccessKey || '').trim();
+	const secretKey = (k.klingSecretKey || '').trim();
+	if (!accessKey || !secretKey) return null;
+	return { accessKey, secretKey, model: (k.klingModel || 'kling-v3').trim() };
 }
 
 export type Provider =

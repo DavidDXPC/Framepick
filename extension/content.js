@@ -1064,7 +1064,7 @@
           <span class="fp-chip still">STILL</span>${fromMotion ? '<span class="fp-meta">from frame ' + (derivedStill.frameIndex + 1) + '</span>' : ''}<br>
           <span class="fp-meta" data-words></span>
         </div>
-        ${hasHero ? `<span class="fp-seg" style="margin-left:auto" title="@hero keeps the composition, lighting and grade — the subject becomes the @hero token, which nFrame resolves to its Hero slot">
+        ${hasHero ? `<span class="fp-seg" style="margin-left:auto" title="@hero keeps the composition, lighting and grade — the subject becomes the @hero token, which FramePick Studio resolves to its Hero slot">
           <button class="sg${promptMode === 'clip' ? ' on' : ''}" data-p="clip">Clip</button>
           <button class="sg${promptMode === 'hero' ? ' on' : ''}" data-p="hero">@hero</button>
         </span>` : ''}
@@ -1074,7 +1074,7 @@
         <button class="fp-btn" data-act="copy">Copy</button>
         <button class="fp-btn" data-act="regen" title="Regenerate">↻</button>
         <span style="flex:1"></span>
-        <button class="fp-btn primary" data-act="usecomp" title="Send to nFrame as this shot's COMPOSITION reference — only the layout is used; your Hero stays the subject">Use as Composition →</button>
+        <button class="fp-btn primary" data-act="usecomp" title="Send to FramePick Studio as this shot's COMPOSITION reference — only the layout is used; your Hero stays the subject">Use as Composition →</button>
       </div>`;
     const promptEl = b.querySelector('[data-prompt]');
     const wordsEl = b.querySelector('[data-words]');
@@ -1142,7 +1142,7 @@
       </div>
       <div class="fp-label-row">
         <span class="fp-label">VIDEO PROMPT</span>
-        ${hasHero ? `<span class="fp-seg" title="@hero keeps the shot, composition, camera and grade — the subject becomes the @hero token, which nFrame resolves to its Hero slot">
+        ${hasHero ? `<span class="fp-seg" title="@hero keeps the shot, composition, camera and grade — the subject becomes the @hero token, which FramePick Studio resolves to its Hero slot">
           <button class="sg${promptMode === 'clip' ? ' on' : ''}" data-p="clip">Clip</button>
           <button class="sg${promptMode === 'hero' ? ' on' : ''}" data-p="hero">@hero</button>
         </span>` : ''}
@@ -1153,7 +1153,7 @@
         <button class="fp-btn" data-act="regen" title="Regenerate">↻</button>
         <span style="flex:1"></span>
         <button class="fp-btn" data-act="still" title="Generate a FLUX.2 STILL prompt from the selected frame instead">force STILL</button>
-        <button class="fp-btn primary" data-act="nframe" title="Send keyframes, breakdown and the @hero video prompt to nFrame — keyframes guide motion & layout only; the Hero slot stays the subject">Use in nFrame →</button>
+        <button class="fp-btn primary" data-act="nframe" title="Send keyframes, breakdown and the @hero video prompt to FramePick Studio — keyframes guide motion & layout only; the Hero slot stays the subject">Use in FramePick Studio →</button>
       </div>`;
     const heroEl = b.querySelector('.fp-hero');
     const timeEl = b.querySelector('.fp-time');
@@ -1202,7 +1202,7 @@
     b.querySelector('[data-act=nframe]').addEventListener('click', (e) => sendMotionToNFrame(frames, duration, data, e.currentTarget));
   }
 
-  // ---------- nFrame Studio handoff ----------
+  // ---------- FramePick Studio handoff ----------
   // Compositions ship at 1024px, keyframes at 512px — plenty for layout /
   // motion guidance while keeping the studio's local storage light.
 
@@ -1224,7 +1224,7 @@
   function sendFeedback(btn, res, idleLabel) {
     if (!btn) return;
     btn.disabled = false;
-    btn.textContent = res.ok ? (res.opened ? 'Opening nFrame ✓' : 'Sent to nFrame ✓') : 'Failed — retry';
+    btn.textContent = res.ok ? (res.opened ? 'Opening FramePick Studio ✓' : 'Sent to FramePick Studio ✓') : 'Failed — retry';
     setTimeout(() => { btn.textContent = idleLabel; }, 2400);
   }
 
@@ -1236,8 +1236,8 @@
       payload: { kind: 'composition', image, prompt, heroPrompt: heroPrompt || '', sourceUrl: location.href.slice(0, 300), ts: Date.now() },
     });
     sendFeedback(btn, res, 'Use as Composition →');
-    if (res.ok) toast(res.opened ? 'Opening nFrame Studio — composition queued for the Inbox' : 'Composition sent to nFrame — your Hero stays the subject', 3000);
-    else toast(`Couldn't reach nFrame: ${res.error || 'unknown error'}`, 3600);
+    if (res.ok) toast(res.opened ? 'Opening FramePick Studio — composition queued for the Inbox' : 'Composition sent to FramePick Studio — your Hero stays the subject', 3000);
+    else toast(`Couldn't reach FramePick Studio: ${res.error || 'unknown error'}`, 3600);
   }
 
   async function sendMotionToNFrame(frames, duration, data, btn) {
@@ -1259,9 +1259,9 @@
         ts: Date.now(),
       },
     });
-    sendFeedback(btn, res, 'Use in nFrame →');
-    if (res.ok) toast(res.opened ? 'Opening nFrame Studio — motion structure queued for the Inbox' : 'Motion structure sent to nFrame — @hero resolves to its Hero slot', 3200);
-    else toast(`Couldn't reach nFrame: ${res.error || 'unknown error'}`, 3600);
+    sendFeedback(btn, res, 'Use in FramePick Studio →');
+    if (res.ok) toast(res.opened ? 'Opening FramePick Studio — motion structure queued for the Inbox' : 'Motion structure sent to FramePick Studio — @hero resolves to its Hero slot', 3200);
+    else toast(`Couldn't reach FramePick Studio: ${res.error || 'unknown error'}`, 3600);
   }
 
   // ---------- frame downloads (original / sketch storyboard) ----------

@@ -1,4 +1,4 @@
-// FramePick — nFrame Studio bridge content script.
+// FramePick — FramePick Studio bridge content script.
 //
 // Injected only on candidate studio origins (workers.dev / localhost); it
 // activates only when the page declares <meta name="framepick-studio">.

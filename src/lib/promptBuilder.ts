@@ -260,10 +260,10 @@ export function buildStoryboardHtml(name: string, visualStyle: string, shots: Sh
 </style></head><body>
   <header>
     <h1>${esc(name)} — Shooting List &amp; Storyboard</h1>
-    <div class="sub">${(shots || []).length} shots · nFrame</div>
+    <div class="sub">${(shots || []).length} shots · FramePick Studio</div>
     ${visualStyle ? `<div class="style"><b>Visual Style</b>${esc(visualStyle)}</div>` : ''}
   </header>
   <main>${articles}</main>
-  <footer>Generated with nFrame · ${new Date().toLocaleDateString()}</footer>
+  <footer>Generated with FramePick Studio · ${new Date().toLocaleDateString()}</footer>
 </body></html>`;
 }

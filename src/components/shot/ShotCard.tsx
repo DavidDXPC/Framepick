@@ -36,6 +36,9 @@ export function ShotCard({
 	onApplyHeroFrames,
 	heroBusy,
 	heroProgress,
+	onGenerateVideo,
+	videoBusy,
+	videoStatus,
 }: {
 	shot: Shot;
 	aspectRatio: string;
@@ -63,6 +66,9 @@ export function ShotCard({
 	onApplyHeroFrames?: (() => void) | null;
 	heroBusy?: boolean;
 	heroProgress?: string;
+	onGenerateVideo?: (() => void) | null;
+	videoBusy?: boolean;
+	videoStatus?: string;
 }) {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const menuRef = useDismiss(menuOpen, setMenuOpen) as React.RefObject<HTMLDivElement>;
@@ -176,10 +182,15 @@ export function ShotCard({
 					onTalentRef={(img: RefImage | null) => onUpdate({ talentRef: img })}
 					onSketchRef={(img: RefImage | null) => onUpdate({ sketchRef: img })}
 					onPickBoard={onPickBoardRef ? (target) => onPickBoardRef(shot.id, target) : null}
-					onRemoveMotion={() => onUpdate({ motionRef: null })}
+					onRemoveMotion={() => onUpdate({ motionRef: null, videoUrl: undefined })}
 					onApplyHeroFrames={onApplyHeroFrames}
 					heroBusy={heroBusy}
 					heroProgress={heroProgress}
+					videoUrl={shot.videoUrl}
+					videoBusy={videoBusy}
+					videoStatus={videoStatus}
+					onGenerateVideo={onGenerateVideo}
+					onRemoveVideo={() => onUpdate({ videoUrl: undefined })}
 				/>
 				<FrameMotionChips shot={shot} projectAspect={projectAspect} visualStyle={visualStyle} onPatch={onPatchShot} />
 				<div className="nf-card-action">

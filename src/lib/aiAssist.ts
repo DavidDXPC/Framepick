@@ -48,6 +48,64 @@ export async function generateImage(payload: unknown): Promise<Record<string, un
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Kling video generation (image → video), via the Worker proxy.
+// ---------------------------------------------------------------------------
+export interface VideoRequest {
+	accessKey: string;
+	secretKey: string;
+	model: string;
+	image: string; // data URL or remote URL — the start frame
+	prompt: string;
+	duration?: '5' | '10';
+	aspectRatio?: string;
+	mode?: 'std' | 'pro';
+	negativePrompt?: string;
+}
+
+// Kick off a Kling image-to-video task; resolves to its task id.
+export async function generateVideo(req: VideoRequest): Promise<string> {
+	const data = await postJson<{ taskId?: string }>('/api/generate-video', {
+		klingAccessKey: req.accessKey,
+		klingSecretKey: req.secretKey,
+		model: req.model,
+		image: req.image,
+		prompt: req.prompt,
+		duration: req.duration || '5',
+		aspectRatio: req.aspectRatio || '16:9',
+		mode: req.mode || 'std',
+		negativePrompt: req.negativePrompt || '',
+	});
+	if (!data.taskId) throw new Error('Kling did not return a task id.');
+	return data.taskId;
+}
+
+// Poll a Kling task to completion. Calls onTick(status) on each poll.
+// Kling image-to-video typically takes 1–5 minutes.
+export async function pollVideo(
+	creds: { accessKey: string; secretKey: string },
+	taskId: string,
+	onTick?: (status: string) => void,
+	opts: { intervalMs?: number; timeoutMs?: number } = {},
+): Promise<string> {
+	const interval = opts.intervalMs ?? 6000;
+	const deadline = Date.now() + (opts.timeoutMs ?? 8 * 60 * 1000);
+	// eslint-disable-next-line no-constant-condition
+	while (true) {
+		const data = await postJson<{ status?: string; videoUrl?: string; message?: string }>('/api/video-status', {
+			klingAccessKey: creds.accessKey,
+			klingSecretKey: creds.secretKey,
+			taskId,
+		});
+		const status = data.status || 'processing';
+		onTick?.(status);
+		if (status === 'succeed' && data.videoUrl) return data.videoUrl;
+		if (status === 'failed') throw new Error(data.message || 'Kling reported the task failed.');
+		if (Date.now() > deadline) throw new Error('Video generation timed out. Check Kling for the task status.');
+		await new Promise((r) => setTimeout(r, interval));
+	}
+}
+
 // Field-level text assist: enhance / suggest / clarity / shorten / custom (Qp)
 export async function fieldAssist(opts: {
 	action: string;

@@ -50,7 +50,7 @@ $('save').addEventListener('click', async () => {
     try {
       studioUrl = new URL(studioUrl).origin;
     } catch {
-      return status('nFrame Studio URL is not a valid URL', false);
+      return status('FramePick Studio URL is not a valid URL', false);
     }
   }
   await chrome.storage.local.set({

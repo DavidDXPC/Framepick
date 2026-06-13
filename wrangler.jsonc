@@ -1,5 +1,5 @@
 {
-	// FramePick — nFrame Studio: a Vite/React SPA served as static assets, plus a
+	// FramePick — FramePick Studio: a Vite/React SPA served as static assets, plus a
 	// small Worker that implements /api/generate-image and /api/dop-assist
 	// (OpenAI proxy). The Worker runs first for /api/*; everything else is
 	// served from ./dist, with SPA fallback to index.html.

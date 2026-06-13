@@ -7,27 +7,27 @@ FramePick is a unified toolkit for AI generation artists, in two connected parts
 | Surface | What it is |
 | --- | --- |
 | **FramePick extension** (`extension/`) | A Chrome/Brave extension: click any image, video, or GIF on any page → get a paste-ready AI prompt (FLUX.2 stills, structured motion breakdowns for Veo / Runway / Kling), then send it straight into the studio. |
-| **nFrame Studio** (web app, repo root) | A shot-list & storyboard studio: scenes, shot cards with **Hero** + **Composition** references, cinematography (Frame/Motion) taxonomies, gpt-image generation, Moodboard, and Academy. Served by a Cloudflare Worker. |
+| **FramePick Studio** (web app, repo root) | A shot-list & storyboard studio: scenes, shot cards with **Hero** + **Composition** references, cinematography (Frame/Motion) taxonomies, gpt-image generation, Moodboard, and Academy. Served by a Cloudflare Worker. |
 
 Live studio: **https://framepick.comprido-david.workers.dev**
 
-## The workflow — STILL → nFrame, MOTION → nFrame
+## The workflow — STILL → FramePick Studio, MOTION → FramePick Studio
 
-The core idea: **your Hero never leaves nFrame.** FramePick only ships structure — composition, motion, and prompts that reference the subject as a token.
+The core idea: **your Hero never leaves FramePick Studio.** FramePick only ships structure — composition, motion, and prompts that reference the subject as a token.
 
 ### STILL → Composition
 
 1. Browse references anywhere (Pinterest, Behance, anywhere). Arm the picker, click a still.
 2. FramePick generates the FLUX.2 prompt and shows **Use as Composition →**.
-3. One click sends the image into nFrame's **Inbox**. Drop it on a shot — it lands in the **Composition** slot: only the layout, framing and pose are used. The shot's **Hero** reference stays the subject.
+3. One click sends the image into FramePick Studio's **Inbox**. Drop it on a shot — it lands in the **Composition** slot: only the layout, framing and pose are used. The shot's **Hero** reference stays the subject.
 
 ### MOTION → @hero
 
 1. Click a video or GIF. FramePick samples keyframes (2–10, evenly), and produces the six-row motion breakdown plus **two** video prompts:
    - **Clip** — the original clip described as-is.
    - **@hero** — the same shot, composition, camera move, evolution and grade, with the subject replaced by the literal token `@hero`.
-2. **Use in nFrame →** sends keyframes + breakdown + both prompts to the studio.
-3. In nFrame, the keyframes attach to a shot as **motion & layout guides** (never the final subject). The `@hero` token resolves to that shot's Hero slot — copy the resolved video prompt with one click.
+2. **Use in FramePick Studio →** sends keyframes + breakdown + both prompts to the studio.
+3. In FramePick Studio, the keyframes attach to a shot as **motion & layout guides** (never the final subject). The `@hero` token resolves to that shot's Hero slot — copy the resolved video prompt with one click.
 
 The extension finds an open studio tab and delivers live; if none is open it queues the handoff and opens the studio — the Inbox picks it up on load.
 
@@ -47,7 +47,7 @@ npm run deploy     # vite build && wrangler deploy (Worker name: "framepick")
 
 1. `chrome://extensions` → enable **Developer mode** → **Load unpacked** → select `extension/`.
 2. Open **Options…** → pick a provider (Anthropic Claude or OpenAI), paste your API key, **Save**.
-3. The **nFrame Studio URL** option controls where handoffs are delivered — point it at `http://localhost:5173` while developing.
+3. The **FramePick Studio URL** option controls where handoffs are delivered — point it at `http://localhost:5173` while developing.
 
 ### Icons
 
@@ -74,3 +74,4 @@ Pushes to `main` also auto-deploy via GitHub Actions (`.github/workflows/deploy.
 - **Queue + live delivery** — `extension/background.js` routes `nframe-send` to an open studio tab via the bridge, or queues in `chrome.storage.local` and opens the studio; the bridge flushes the queue after the app announces `studio-ready`.
 - **@hero resolution** — `resolveHeroPrompt()` replaces the token with the shot description and appends a Hero-identity directive when a Hero reference is attached. Keyframes are explicitly guides; the Hero slot is the subject.
 - **Keys stay client-side** — the studio's Worker (`worker/index.ts`) proxies OpenAI per-request with keys from localStorage; the extension stores its keys in `chrome.storage.local` and calls providers directly.
+- **Motion video (Kling)** — a motion shot's Composition module has a **Generate video** action. The Worker signs a per-request HS256 JWT (`iss`=Access Key, 30-min expiry) and calls Kling image-to-video (`api-singapore.klingai.com`, model `kling-v3` by default), animating the shot's generated still with the resolved `@hero` prompt, then polls to completion and plays the result inline. Add your Kling **Access Key** + **Secret Key** in **API keys** (create them at [kling.ai/dev/api-key](https://kling.ai/dev/api-key)).

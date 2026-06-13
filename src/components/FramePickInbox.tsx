@@ -67,7 +67,7 @@ export function FramePickInbox({
 					<FramePickLogo size={34} tile />
 					<strong>Nothing here yet</strong>
 					<p>
-						Browse anywhere with the FramePick extension, pick a still or a clip, and hit <b>Use in nFrame</b>. Compositions and motion structures arrive here, ready to drop into a
+						Browse anywhere with the FramePick extension, pick a still or a clip, and hit <b>Use in FramePick Studio</b>. Compositions and motion structures arrive here, ready to drop into a
 						shot.
 					</p>
 				</div>

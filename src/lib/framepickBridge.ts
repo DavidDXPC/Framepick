@@ -1,4 +1,4 @@
-// FramePick → nFrame bridge (web side).
+// FramePick → FramePick Studio bridge (web side).
 //
 // The FramePick browser extension delivers handoffs into this app through
 // window.postMessage (relayed by its bridge content script). This module
@@ -162,7 +162,7 @@ export function addHandoff(payload: FramePickHandoff): void {
 
 // ---------------------------------------------------------------------------
 // @hero token resolution — the FramePick motion prompt names its subject with
-// the literal token @hero; nFrame resolves it to this shot's Hero slot.
+// the literal token @hero; FramePick Studio resolves it to this shot's Hero slot.
 // ---------------------------------------------------------------------------
 
 export const HERO_TOKEN = '@hero';

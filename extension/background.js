@@ -11,7 +11,7 @@ const DEFAULTS = {
   openaiKey: '',              // OpenAI key
   openaiModel: 'gpt-4o',
   frameCount: 8,
-  // nFrame Studio — where "Use in nFrame" handoffs are delivered
+  // FramePick Studio — where "Use in FramePick Studio" handoffs are delivered
   studioUrl: 'https://framepick.comprido-david.workers.dev',
 };
 const HISTORY_MAX = 20;
@@ -320,9 +320,9 @@ async function generateMotion(frames, duration) {
     : claudeMotion(frames, duration, s);
 }
 
-// ---------- nFrame Studio handoff ----------
+// ---------- FramePick Studio handoff ----------
 //
-// "Use in nFrame" routes a handoff payload to an open studio tab via the
+// "Use in FramePick Studio" routes a handoff payload to an open studio tab via the
 // bridge content script; if no tab is ready, the payload is queued in
 // storage and the studio is opened — the bridge pulls the queue once the
 // app announces it is ready.
