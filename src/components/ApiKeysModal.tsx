@@ -1,8 +1,14 @@
+import { useState } from 'react';
 import { headerIcons as Icons } from '../lib/icons';
 import { saveApiKeys } from '../state/persistence';
+import { testKling } from '../lib/aiAssist';
 import { useModalA11y } from '../lib/a11y';
 import type { ApiKeys } from '../state/types';
 import { GhostBtn, monoInputStyle, PrimaryBtn, Row } from './ui';
+
+// Attributes that stop browser / password-manager autofill from silently
+// overwriting an API-key field (a common cause of "invalid" credentials).
+const noFill = { autoComplete: 'off', spellCheck: false, 'data-lpignore': 'true', 'data-1p-ignore': true, 'data-form-type': 'other' } as const;
 
 export function ApiKeysModal({
 	onClose,
@@ -18,6 +24,24 @@ export function ApiKeysModal({
 	const save = () => {
 		saveApiKeys(keys);
 		onClose();
+	};
+
+	// Kling key tester — runs the exact signing path the video generator uses.
+	const [klingTest, setKlingTest] = useState<{ state: 'idle' | 'testing' | 'ok' | 'err'; msg?: string }>({ state: 'idle' });
+	const runKlingTest = async () => {
+		const ak = (keys.klingAccessKey || '').replace(/\s+/g, '');
+		const sk = (keys.klingSecretKey || '').replace(/\s+/g, '');
+		if (!ak || !sk) {
+			setKlingTest({ state: 'err', msg: 'Enter both keys first' });
+			return;
+		}
+		setKlingTest({ state: 'testing' });
+		try {
+			const res = await testKling(ak, sk);
+			setKlingTest(res.ok ? { state: 'ok' } : { state: 'err', msg: res.error || 'Keys rejected' });
+		} catch (e) {
+			setKlingTest({ state: 'err', msg: (e as Error).message || 'Test failed' });
+		}
 	};
 	return (
 		<div
@@ -50,23 +74,23 @@ export function ApiKeysModal({
 					<Row
 						label="OpenAI key"
 						sub="Used for GPT-5.2 vision and GPT Image 2"
-						control={<input type="password" value={keys.openai || ''} placeholder="sk-..." onChange={onField('openai')} style={monoInputStyle} />}
+						control={<input type="password" name="fp-openai-key" value={keys.openai || ''} placeholder="sk-..." onChange={onField('openai')} style={monoInputStyle} {...noFill} />}
 					/>
 					<Row
 						label="Anthropic key"
 						sub="Fallback for Claude Sonnet vision/text"
-						control={<input type="password" value={keys.anthropic || ''} placeholder="sk-ant-..." onChange={onField('anthropic')} style={monoInputStyle} />}
+						control={<input type="password" name="fp-anthropic-key" value={keys.anthropic || ''} placeholder="sk-ant-..." onChange={onField('anthropic')} style={monoInputStyle} {...noFill} />}
 					/>
 					<div style={{ borderTop: '1px solid var(--border-soft)', margin: '2px 0' }} />
 					<Row
 						label="Kling Access Key"
 						sub="Motion video (image → video). Create keys at kling.ai/dev/api-key"
-						control={<input type="password" value={keys.klingAccessKey || ''} placeholder="AK..." onChange={onField('klingAccessKey')} style={monoInputStyle} />}
+						control={<input type="text" name="fp-kling-ak" value={keys.klingAccessKey || ''} placeholder="AK..." onChange={onField('klingAccessKey')} style={{ ...monoInputStyle, WebkitTextSecurity: 'disc' } as React.CSSProperties} {...noFill} />}
 					/>
 					<Row
 						label="Kling Secret Key"
 						sub="Paired with the Access Key; used to sign each request"
-						control={<input type="password" value={keys.klingSecretKey || ''} placeholder="SK..." onChange={onField('klingSecretKey')} style={monoInputStyle} />}
+						control={<input type="text" name="fp-kling-sk" value={keys.klingSecretKey || ''} placeholder="SK..." onChange={onField('klingSecretKey')} style={{ ...monoInputStyle, WebkitTextSecurity: 'disc' } as React.CSSProperties} {...noFill} />}
 					/>
 					<Row
 						label="Kling model"
@@ -81,8 +105,13 @@ export function ApiKeysModal({
 							</select>
 						}
 					/>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+						<GhostBtn onClick={runKlingTest}>{klingTest.state === 'testing' ? 'Testing…' : 'Test Kling keys'}</GhostBtn>
+						{klingTest.state === 'ok' && <span style={{ color: 'var(--success)', fontSize: 12.5, fontWeight: 600 }}>✓ Keys valid</span>}
+						{klingTest.state === 'err' && <span style={{ color: 'var(--danger)', fontSize: 12.5 }}>{klingTest.msg}</span>}
+					</div>
 					<div style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)' }}>
-						Keys are stored in this browser's localStorage and sent per-request to their provider only. OpenAI is used first when both vision keys are saved.
+						Keys are stored in this browser's localStorage and sent per-request to their provider only. OpenAI is used first when both vision keys are saved. <b>Tip:</b> if Kling video fails, click <b>Test Kling keys</b> — then re-paste any key it rejects.
 					</div>
 				</div>
 				<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 18px', borderTop: '1px solid var(--border-soft)', background: 'var(--card-2)' }}>

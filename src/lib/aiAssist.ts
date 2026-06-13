@@ -63,6 +63,11 @@ export interface VideoRequest {
 	negativePrompt?: string;
 }
 
+// Validate Kling keys through the exact signing path (no video task created).
+export function testKling(accessKey: string, secretKey: string): Promise<{ ok: boolean; error?: string }> {
+	return postJson('/api/kling-test', { klingAccessKey: accessKey, klingSecretKey: secretKey });
+}
+
 // Kick off a Kling image-to-video task; resolves to its task id.
 export async function generateVideo(req: VideoRequest): Promise<string> {
 	const data = await postJson<{ taskId?: string }>('/api/generate-video', {

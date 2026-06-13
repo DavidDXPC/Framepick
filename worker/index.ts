@@ -341,6 +341,24 @@ async function handleGenerateVideo(body: Record<string, any>): Promise<Response>
 	return json({ taskId: data?.data?.task_id });
 }
 
+// Validate Kling credentials via the exact signing path used for generation:
+// sign a JWT and make one cheap authenticated GET. A "task not found" reply
+// means the signature was accepted; an auth/signature error means bad keys.
+async function handleKlingTest(body: Record<string, any>): Promise<Response> {
+	let token: string;
+	try {
+		token = await klingAuth(body);
+	} catch {
+		return json({ ok: false, error: 'Enter both the Access Key and Secret Key.' });
+	}
+	const r = await fetch(`${KLING_HOST}/v1/videos/image2video/framepick-keytest`, { headers: { Authorization: `Bearer ${token}` } });
+	const data = (await r.json().catch(() => ({}))) as any;
+	const msg = String(data?.message || '');
+	if (/signature|invalid|unauthor|forbidden|token|expired|access key|secret/i.test(msg)) return json({ ok: false, error: msg });
+	// code 0, or "task not found", or any non-auth error all mean auth passed.
+	return json({ ok: true });
+}
+
 async function handleVideoStatus(body: Record<string, any>): Promise<Response> {
 	let token: string;
 	try {
@@ -376,6 +394,7 @@ export default {
 				if (url.pathname === '/api/dop-assist') return await handleDopAssist(body);
 				if (url.pathname === '/api/generate-video') return await handleGenerateVideo(body);
 				if (url.pathname === '/api/video-status') return await handleVideoStatus(body);
+				if (url.pathname === '/api/kling-test') return await handleKlingTest(body);
 				return json({ error: 'Not found' }, 404);
 			} catch (e) {
 				return json({ error: (e as Error).message || 'Server error' }, 500);
