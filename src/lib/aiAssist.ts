@@ -68,6 +68,11 @@ export function testKling(accessKey: string, secretKey: string): Promise<{ ok: b
 	return postJson('/api/kling-test', { klingAccessKey: accessKey, klingSecretKey: secretKey });
 }
 
+// Live Kling resource-pack balance (units remaining / total across active packs).
+export function klingCredits(accessKey: string, secretKey: string): Promise<{ remaining: number; total: number; error?: string }> {
+	return postJson('/api/kling-credits', { klingAccessKey: accessKey, klingSecretKey: secretKey });
+}
+
 // Kick off a Kling image-to-video task; resolves to its task id.
 export async function generateVideo(req: VideoRequest): Promise<string> {
 	const data = await postJson<{ taskId?: string }>('/api/generate-video', {

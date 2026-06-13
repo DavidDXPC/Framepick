@@ -359,6 +359,31 @@ async function handleKlingTest(body: Record<string, any>): Promise<Response> {
 	return json({ ok: true });
 }
 
+// Live Kling balance: sum remaining/total units across active resource packs.
+async function handleKlingCredits(body: Record<string, any>): Promise<Response> {
+	let token: string;
+	try {
+		token = await klingAuth(body);
+	} catch {
+		return json({ error: 'Missing Kling credentials.' }, 400);
+	}
+	const now = Math.floor(Date.now() / 1000);
+	const url = `${KLING_HOST}/account/costs?start_time=${(now - 90 * 24 * 3600) * 1000}&end_time=${now * 1000}`;
+	const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+	const data = (await r.json().catch(() => ({}))) as any;
+	if (!r.ok || data?.code !== 0) return klingError(data, r.status);
+	const packs: any[] = data?.data?.resource_pack_subscribe_infos || [];
+	let remaining = 0;
+	let total = 0;
+	for (const p of packs) {
+		if (p?.status === 'online') {
+			remaining += Number(p.remaining_quantity) || 0;
+			total += Number(p.total_quantity) || 0;
+		}
+	}
+	return json({ remaining, total });
+}
+
 async function handleVideoStatus(body: Record<string, any>): Promise<Response> {
 	let token: string;
 	try {
@@ -395,6 +420,7 @@ export default {
 				if (url.pathname === '/api/generate-video') return await handleGenerateVideo(body);
 				if (url.pathname === '/api/video-status') return await handleVideoStatus(body);
 				if (url.pathname === '/api/kling-test') return await handleKlingTest(body);
+				if (url.pathname === '/api/kling-credits') return await handleKlingCredits(body);
 				return json({ error: 'Not found' }, 404);
 			} catch (e) {
 				return json({ error: (e as Error).message || 'Server error' }, 500);

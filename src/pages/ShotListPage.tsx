@@ -16,6 +16,7 @@ import { ImageEditStage } from '../components/shot/ImageEditStage';
 import { FramePickInbox } from '../components/FramePickInbox';
 import { ConfirmDialog, type ConfirmRequest } from '../components/ConfirmDialog';
 import { inboxCount, removeInboxItem, resolveHeroPrompt, subscribeInbox, type InboxItem } from '../lib/framepickBridge';
+import { loadVideoSettings } from '../lib/videoSettings';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -268,8 +269,12 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 			flash('Add a description or a motion prompt to guide the video.', 4500);
 			return;
 		}
-		const duration = sh.motionRef && sh.motionRef.duration > 7.5 ? '10' : '5';
-		const job: VideoJob = { phase: 'submit', startMs: Date.now(), etaMs: estimateVideoMs(duration, kling.model) };
+		// Settings from the gear popover (model / mode / duration / aspect).
+		const vs = loadVideoSettings();
+		const model = vs.model || kling.model;
+		const duration = vs.duration || (sh.motionRef && sh.motionRef.duration > 7.5 ? '10' : '5');
+		const aspect = vs.aspectRatio === 'auto' ? sceneAspect : vs.aspectRatio;
+		const job: VideoJob = { phase: 'submit', startMs: Date.now(), etaMs: estimateVideoMs(duration, model) };
 		setVideoGen((g) => ({ ...g, [shotId]: job }));
 		try {
 			// Kling caps input at 10MB — downscale to a safe JPEG start frame.
@@ -277,12 +282,12 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 			const taskId = await generateVideo({
 				accessKey: kling.accessKey,
 				secretKey: kling.secretKey,
-				model: kling.model,
+				model,
 				image,
 				prompt,
 				duration,
-				aspectRatio: sceneAspect,
-				mode: 'std',
+				aspectRatio: aspect,
+				mode: vs.mode,
 			});
 			const phaseOf = (status: string): VideoJob['phase'] => (status === 'succeed' ? 'finish' : status === 'processing' ? 'render' : 'queued');
 			const url = await pollVideo(kling, taskId, (status) =>

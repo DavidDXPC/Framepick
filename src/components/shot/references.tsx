@@ -4,6 +4,7 @@ import { fileToRefImage } from '../../state/persistence';
 import { HERO_TOKEN, resolveHeroPrompt } from '../../lib/framepickBridge';
 import type { MotionRef, RefImage } from '../../state/types';
 import { DESCRIPTION_ENHANCE_MODES, EnhancePill } from './ai';
+import { VideoSettings } from './VideoSettings';
 
 // RefThumb (Zs): a single reference-image thumbnail with upload / drop / clear / Board.
 export function RefThumb({
@@ -223,6 +224,7 @@ function CompositionFrames({
 						{heroBusy ? heroProgress || 'Applying @hero…' : 'Apply @hero to Frames'}
 					</button>
 				)}
+				{onGenerateVideo && <VideoSettings />}
 				{onGenerateVideo && (
 					<button
 						type="button"
