@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { icons } from '../lib/icons';
-import { loadShotList, saveShotList, getProvider } from '../state/persistence';
+import { loadShotList, saveShotList, getProvider, downscaleImage } from '../state/persistence';
 import { dopAssist, generateImage } from '../lib/aiAssist';
 import { assembleShotPrompt, buildStoryboardHtml, shotSignature } from '../lib/promptBuilder';
 import { initialScene, newScene, newShot } from '../state/defaults';
@@ -16,7 +16,7 @@ import { RecipesModal, BoardPicker } from '../components/shot/modals';
 import { ImageEditStage } from '../components/shot/ImageEditStage';
 import { FramePickInbox } from '../components/FramePickInbox';
 import { ConfirmDialog, type ConfirmRequest } from '../components/ConfirmDialog';
-import { inboxCount, removeInboxItem, resolveHeroPrompt, subscribeInbox, type InboxItem } from '../lib/framepickBridge';
+import { inboxCount, removeInboxItem, subscribeInbox, type InboxItem } from '../lib/framepickBridge';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -101,13 +101,10 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 				if (p.kind === 'composition') {
 					return { ...sh, sketchRef: { src: p.image, name: 'framepick-composition' } };
 				}
-				// motion: keyframes land in the Composition slot as guides; an empty
-				// description is seeded with the resolved @hero prompt so the shot is
-				// ready to generate immediately.
-				const seeded = (sh.description || '').trim() ? sh.description : resolveHeroPrompt(p.heroPrompt || p.videoPrompt, {});
+				// motion: keyframes land in the Composition slot as guides. The prompt
+				// lives in the Composition module — the description stays the user's.
 				return {
 					...sh,
-					description: seeded,
 					motionRef: {
 						frames: p.frames,
 						duration: p.duration,
@@ -153,8 +150,16 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		}
 		const total = mr.frames.length;
 		setHeroGen((g) => ({ ...g, [shotId]: { done: 0, total } }));
-		const heroSubject = (sh.description || '').trim().slice(0, 300) || 'the HERO subject';
-		const prompt = `Replace the main subject of the COMPOSITION reference image with the HERO subject from the HERO reference image. Preserve the composition's framing, camera angle, perspective, subject placement and scale, lighting, color grade, environment and motion pose exactly — only the subject changes. The HERO subject (${heroSubject}) must keep its exact identity, colors, materials and design. Photorealistic, coherent edges and geometry, no extra elements, no text, no watermarks.`;
+		// The model can't see image *names* — only their order. So the contract is
+		// ordinal: image 1 = the scene being edited, image 2 = the subject to
+		// insert. The original subject must be removed, not restyled.
+		const heroSubject = (sh.description || '').trim().split(/(?<=[.!?])\s/)[0].slice(0, 160);
+		const prompt =
+			`Edit the FIRST input image, a composition keyframe from a motion sequence: completely REMOVE its current main subject and place the subject of the SECOND input image (the HERO) in its position — matching the removed subject's placement, scale, orientation and motion pose. ` +
+			`Keep everything else from the first image exactly as it is: composition, camera angle, framing, perspective, background, environment, lighting, shadows, reflections and color grade. ` +
+			`The HERO${heroSubject ? ` (${heroSubject})` : ''} must keep its exact identity, shape, colors, materials, branding and design from the second image — do not restyle, recolor or redesign it. ` +
+			`The first image's original subject must NOT appear in the result in any form — not blended, ghosted or partially visible. The HERO is the one and only subject. ` +
+			`Photorealistic, seamless integration, coherent shadows and reflections, no extra objects, no added text, no watermarks.`;
 		const size = sceneAspect === '1:1' ? '1024x1024' : sceneAspect === '9:16' ? '1024x1536' : '1536x1024';
 		const quality = String(imageSettings.quality || 'medium').toLowerCase();
 		const results: { t: number; src: string }[] = [];
@@ -169,8 +174,8 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 					background: 'opaque',
 					outputFormat: 'png',
 					inputImages: [
-						{ src: sh.talentRef.src, name: 'hero-subject' },
 						{ src: frame.src, name: 'composition-frame' },
+						{ src: sh.talentRef.src, name: 'hero-subject' },
 					],
 				});
 				const src = (res.image as string) || ((res.images as { src: string }[]) || [])[0]?.src || (res.url as string);
@@ -181,6 +186,9 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 			flash(`@hero frames stopped after ${results.length}/${total}: ${(e as Error).message || e}`, 6000);
 		}
 		if (results.length) {
+			// The strip copy is a guide, not a deliverable — downscale it hard so
+			// localStorage persistence survives (full-res stays in the variants).
+			const guides = await Promise.all(results.map(async (r) => ({ t: r.t, src: await downscaleImage(r.src, 512) })));
 			onScene((s) => ({
 				...s,
 				shots: s.shots.map((x) => {
@@ -193,7 +201,7 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 					}));
 					const variants = [...newVariants, ...(x.variants || [])];
 					const images = x.images?.length ? x.images : [{ id: `img-${Date.now()}`, src: results[0].src, originalUrl: results[0].src, name: `shot-${x.number}-hero-frame` }];
-					return { ...x, motionRef: x.motionRef ? { ...x.motionRef, heroFrames: results } : x.motionRef, variants, images };
+					return { ...x, motionRef: x.motionRef ? { ...x.motionRef, heroFrames: guides } : x.motionRef, variants, images };
 				}),
 			}));
 			flash(`Generated ${results.length} @hero frame${results.length === 1 ? '' : 's'} — see the Composition strip (@hero) and the shot's variants.`, 5200);
@@ -343,8 +351,11 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 	const generate = async (id: string) => {
 		const shot = scene?.shots.find((s) => s.id === id);
 		if (!shot) return;
-		if (!(shot.description || '').trim()) {
-			flash('Add a description before generating — describe the shot first.');
+		// A shot needs a subject: a written description, or a Hero reference that
+		// the motion @hero prompt can resolve to. The raw clip prompt is never
+		// used as a subject — it would re-describe the source's own subject.
+		if (!(shot.description || '').trim() && !(shot.motionRef?.heroPrompt && shot.talentRef?.src)) {
+			flash(shot.motionRef ? 'Attach a Hero (or write a description) — @hero needs a subject to resolve to.' : 'Add a description before generating — describe the shot first.');
 			return;
 		}
 		if (!visualStyle.trim()) {

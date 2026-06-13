@@ -1,6 +1,7 @@
 import type { FieldChip, Lighting, Shot } from '../state/types';
 import { LIGHTING, SHOT_SIZE_ABBR, SHOT_TYPE_ABBR } from '../data/frame';
 import { filmStockGrade, lightingStyleGrade, movieLookGrade } from '../data/looks';
+import { resolveHeroPrompt } from './framepickBridge';
 
 // Count of configured lighting sub-fields (sa)
 export function countLighting(lighting: Lighting): number {
@@ -86,9 +87,16 @@ export function motionSummary(shot: Shot): string {
 	return [m.cameraMovement, m.speed, m.equipment].filter(Boolean).slice(0, 3).join(' · ');
 }
 
-// Signature used to detect unchanged shots (dd)
+// Signature used to detect unchanged shots (dd). Motion references change the
+// generated result too (keyframes guide layout; @hero frames swap the input),
+// so they participate via their timestamp + hero-frame count.
 export function shotSignature(shot: Shot): string {
-	return JSON.stringify({ d: shot.description, f: shot.frame, m: shot.motion });
+	return JSON.stringify({
+		d: shot.description,
+		f: shot.frame,
+		m: shot.motion,
+		mr: shot.motionRef ? { ts: shot.motionRef.ts, hf: shot.motionRef.heroFrames?.length || 0 } : null,
+	});
 }
 
 // Build the labeled image-generation spec (Wp)
@@ -97,7 +105,11 @@ export function buildPrompt(visualStyle: string, shot: Shot, sceneAspect: string
 	const m = shot.motion;
 	const h = f.lighting;
 	const out: string[] = [];
-	const subject = (shot.description || '').trim() || 'the hero subject';
+	// Subject: the description when written; otherwise a motion shot can run on
+	// its resolved @hero prompt. Never the raw clip prompt — that re-describes
+	// the source's own subject, which the directives explicitly ban.
+	const heroVideo = shot.motionRef?.heroPrompt || '';
+	const subject = (shot.description || '').trim() || (heroVideo ? resolveHeroPrompt(heroVideo, { hasHeroRef: false }) : 'the hero subject');
 	out.push(`Hero commercial still image: ${subject}. Photorealistic.`);
 
 	const camera = [
@@ -164,15 +176,28 @@ export function buildPrompt(visualStyle: string, shot: Shot, sceneAspect: string
 // single source of truth shared by generation and the "view prompt" UI.
 export function assembleShotPrompt(visualStyle: string, shot: Shot, sceneAspect: string): string {
 	const base = buildPrompt(visualStyle, shot, sceneAspect);
+	// Input-image directives. The model only sees image ORDER, not names — so
+	// when both references are attached the roles are stated ordinally
+	// (generation sends HERO first, COMPOSITION second; see generate()).
+	const hasHero = !!shot.talentRef?.src;
+	const hasComp = !!shot.motionRef?.frames?.length || !!shot.sketchRef?.src;
+	const heroRef = hasHero && hasComp ? 'the FIRST input image' : 'the input image';
+	const compRef = hasHero && hasComp ? 'the SECOND input image' : 'the input image';
 	const prefix: string[] = [];
-	if (shot.talentRef?.src) prefix.push('Use the HERO reference image as the exact subject — preserve its identity, colors, materials and design.');
-	if (shot.motionRef?.frames?.length)
+	if (hasHero) prefix.push(`Use ${heroRef} as the HERO — the exact subject. Preserve its identity, colors, materials and design.`);
+	if (shot.motionRef?.heroFrames?.length)
+		// the composition input is an @hero-applied keyframe — the HERO is
+		// already in position; banning "its subject" would ban the HERO itself
 		prefix.push(
-			"Use the COMPOSITION reference image (a keyframe sampled from a motion reference) ONLY for layout, framing, camera angle and the subject's placement and scale. Do NOT copy its own subject, background, scenery, colors or lighting — take only the spatial structure. Place the HERO subject into that structure, keeping it consistent for motion continuity. Explicit Frame settings and lighting specified below take precedence.",
+			`Use ${compRef} as the COMPOSITION reference — a keyframe that already shows the HERO in position. Match its composition, camera angle, framing and the HERO's placement and scale exactly, keeping motion continuity; refine detail, materials and lighting per the spec below. The HERO stays the one and only subject.`,
+		);
+	else if (shot.motionRef?.frames?.length)
+		prefix.push(
+			`Use ${compRef} (a keyframe sampled from a motion reference) ONLY for layout, framing, camera angle and the subject's placement and scale. Do NOT copy its own subject, background, scenery, colors or lighting — take only the spatial structure. Place the HERO subject into that structure, keeping it consistent for motion continuity. The keyframe's original subject must not appear. Explicit Frame settings and lighting specified below take precedence.`,
 		);
 	else if (shot.sketchRef?.src)
 		prefix.push(
-			"Use the COMPOSITION reference image ONLY for layout, framing, camera angle, pose and placement of the subject. Do NOT copy its background, environment, scenery, props, colors or lighting — take only the spatial composition. Place the HERO subject into that composition, replacing the reference's own subject. Explicit Frame settings and lighting specified below take precedence.",
+			`Use ${compRef} as the COMPOSITION reference, ONLY for layout, framing, camera angle, pose and placement of the subject. Do NOT copy its background, environment, scenery, props, colors or lighting — take only the spatial composition. Place the HERO subject into that composition, replacing the reference's own subject. Explicit Frame settings and lighting specified below take precedence.`,
 		);
 	return prefix.length ? `${prefix.join(' ')} ${base}` : base;
 }

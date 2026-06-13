@@ -6,7 +6,6 @@ import { Spinner } from '../ui';
 import { AnchoredPopover, useDismiss } from './popover';
 import { MediaShell, Variants } from './media';
 import { DescriptionBlock } from './references';
-import { MotionRefBlock } from './MotionRefBlock';
 import { FrameMotionChips, type PatchFn } from './frameMotion';
 import { ImageSettings, VariantCount } from './controls';
 import { PromptModal } from './modals';
@@ -182,7 +181,6 @@ export function ShotCard({
 					heroBusy={heroBusy}
 					heroProgress={heroProgress}
 				/>
-				{shot.motionRef && <MotionRefBlock shot={shot} onRemove={() => onUpdate({ motionRef: null })} />}
 				<FrameMotionChips shot={shot} projectAspect={projectAspect} visualStyle={visualStyle} onPatch={onPatchShot} />
 				<div className="nf-card-action">
 					<div className="nf-gen-controls">

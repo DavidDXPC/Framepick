@@ -80,7 +80,11 @@ async function handleGenerateImage(body: Record<string, any>): Promise<Response>
 	const quality = pick(body.quality, ['low', 'medium', 'high', 'auto'], 'auto');
 	const background = pick(body.background, ['transparent', 'opaque', 'auto'], 'auto');
 	const outputFormat = pick(body.outputFormat, ['png', 'jpeg', 'webp'], 'png');
-	const inputImages: { src: string; name?: string }[] = Array.isArray(body.inputImages) ? body.inputImages : [];
+	const inputImages: { src: string; name?: string }[] = (Array.isArray(body.inputImages) ? body.inputImages : []).filter((img) => img?.src);
+	// Prompts reference input images ORDINALLY ("the FIRST input image…"), so a
+	// silently dropped image would shift every role. Fail loud instead.
+	const nonData = inputImages.find((img) => !img.src.startsWith('data:'));
+	if (nonData) return json({ error: `Input image "${nonData.name || 'reference'}" is not embedded image data — re-attach it and try again.` }, 400);
 
 	const { res, data } = await tryModels(IMAGE_MODELS, async (model) => {
 		let r: Response;
