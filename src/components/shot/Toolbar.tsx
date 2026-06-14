@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { icons } from '../../lib/icons';
 import type { Scene } from '../../state/types';
-import { AnchoredPopover, useDismiss } from './popover';
+import { useDismiss } from './popover';
 
 // ColsIcon (Yu): a tiny multi-column glyph for the view picker.
 function ColsIcon({ cols }: { cols: number }) {
@@ -16,12 +16,9 @@ function ColsIcon({ cols }: { cols: number }) {
 }
 
 const VIEW_OPTS = [
-	{ v: 'list', label: 'List View' },
 	{ v: 'g1', label: 'One Column' },
 	{ v: 'g2', label: 'Two Columns' },
 	{ v: 'g3', label: 'Three Columns' },
-	{ v: 'g4', label: 'Four Columns' },
-	{ v: 'g5', label: 'Five Columns' },
 ];
 
 // AspectSeg (fh)
@@ -73,47 +70,6 @@ function ViewSelect({ view, setView }: { view: string; setView: (v: string) => v
 	);
 }
 
-// ExportMenu (hh)
-function ExportMenu({ onPrint, onDownloadHtml }: { onPrint: () => void; onDownloadHtml: () => void }) {
-	const [open, setOpen] = useState(false);
-	const ref = useDismiss(open, setOpen) as React.RefObject<HTMLDivElement>;
-	const btnRef = useRef<HTMLButtonElement>(null);
-	return (
-		<div className="nf-view-select" ref={ref}>
-			<button type="button" className="nf-toolbar-btn" ref={btnRef} onClick={() => setOpen((o) => !o)} title="Export storyboard">
-				{icons.download}
-				<span>Export</span>
-				{icons.chev}
-			</button>
-			<AnchoredPopover anchorRef={btnRef} open={open} align="right" width={228}>
-				<div className="nf-popover">
-					<div className="nf-popover-title">Export storyboard</div>
-					<button
-						type="button"
-						className="nf-popover-opt"
-						onClick={() => {
-							onPrint();
-							setOpen(false);
-						}}
-					>
-						<span>Print / Save as PDF</span>
-					</button>
-					<button
-						type="button"
-						className="nf-popover-opt"
-						onClick={() => {
-							onDownloadHtml();
-							setOpen(false);
-						}}
-					>
-						<span>Download HTML deck</span>
-					</button>
-				</div>
-			</AnchoredPopover>
-		</div>
-	);
-}
-
 // Toolbar (mh)
 export function Toolbar({
 	scene,
@@ -121,26 +77,20 @@ export function Toolbar({
 	setAspectRatio,
 	view,
 	setView,
-	onAddShot,
 	savedFlash,
-	onPrint,
-	onDownloadHtml,
 }: {
 	scene: Scene | null;
 	aspectRatio: string;
 	setAspectRatio: (v: string) => void;
 	view: string;
 	setView: (v: string) => void;
-	onAddShot: () => void;
 	savedFlash: boolean;
-	onPrint: () => void;
-	onDownloadHtml: () => void;
 }) {
 	return (
 		<div className="nf-shot-toolbar">
 			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 				<div>
-					<h1>Shooting List and Storyboard</h1>
+					<h1>Storyboard</h1>
 					<p>
 						{scene ? `${scene.shots.length} ${scene.shots.length === 1 ? 'shot' : 'shots'}` : 'No shots'}
 						{savedFlash && <span className="nf-saved-pip" title="All changes saved" />}
@@ -151,12 +101,6 @@ export function Toolbar({
 				<AspectSeg value={aspectRatio} onChange={setAspectRatio} />
 				<span className="nf-vsep" />
 				<ViewSelect view={view} setView={setView} />
-				<ExportMenu onPrint={onPrint} onDownloadHtml={onDownloadHtml} />
-				<span className="nf-vsep" />
-				<button type="button" className="nf-primary-btn" onClick={onAddShot}>
-					{icons.plus}
-					<span>Add Shot</span>
-				</button>
 			</div>
 		</div>
 	);

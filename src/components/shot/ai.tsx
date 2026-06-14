@@ -19,9 +19,6 @@ export interface EnhanceMode {
 
 const DEFAULT_ENHANCE_MODES: EnhanceMode[] = [
 	{ id: 'enhance', label: 'Enhance prompt', hint: 'Tighten phrasing, add production specifics' },
-	{ id: 'suggest', label: 'Suggest prompt', hint: 'Generate a fresh option for this field' },
-	{ id: 'clarity', label: 'Rewrite for clarity', hint: 'Same meaning, cleaner prose' },
-	{ id: 'shorten', label: 'Shorten', hint: 'Compress without adding details' },
 	{ id: 'custom', label: 'Custom prompt', hint: 'Write your own instruction' },
 ];
 

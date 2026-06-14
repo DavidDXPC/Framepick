@@ -12,7 +12,6 @@ import type { ApiKeys, MoodItem, MoodView, TabKey } from './state/types';
 
 export function App() {
 	const [tab, setTab] = useState<TabKey>('shot');
-	const [dark, setDark] = useState(false);
 	const [apiKeysOpen, setApiKeysOpen] = useState(false);
 	const [apiKeys, setApiKeys] = useState<ApiKeys>(() => loadApiKeys());
 	const [tweaks, setTweak] = useTweaks(DEFAULT_TWEAKS);
@@ -72,8 +71,6 @@ export function App() {
 			<Header
 				tab={tab}
 				setTab={setTab}
-				dark={dark}
-				setDark={setDark}
 				onApiKeys={() => setApiKeysOpen(true)}
 				onInbox={() => {
 					// the inbox lives on the Shot list page — jump there, then toggle

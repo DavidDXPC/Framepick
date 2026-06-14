@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { icons } from '../lib/icons';
 import { loadShotList, saveShotList, loadShotListIdb, saveShotListIdb, getProvider, getKling, downscaleImage } from '../state/persistence';
 import { dopAssist, generateImage, generateVideo, pollVideo } from '../lib/aiAssist';
-import { assembleShotPrompt, buildStoryboardHtml, shotSignature } from '../lib/promptBuilder';
+import { assembleShotPrompt, shotSignature } from '../lib/promptBuilder';
 import { initialScene, newScene, newShot } from '../state/defaults';
 import { mergeRecipeFrame } from '../lib/recipeApply';
 import type { FieldChip, ImageSettings, MoodItem, RefImage, Scene, Shot, Variant } from '../state/types';
@@ -42,22 +42,6 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 	const [recipesOpen, setRecipesOpen] = useState(false);
 	const [appliedRecipeId, setAppliedRecipeId] = useState(() => loaded?.appliedRecipeId || '');
 	const [imageSettings, setImageSettings] = useState<ImageSettings>({ quality: 'Low', background: 'Opaque', format: 'PNG', variations: 1, seed: '' });
-	const [coach, setCoach] = useState(() => {
-		try {
-			return !localStorage.getItem('nframe:onboarded');
-		} catch {
-			return false;
-		}
-	});
-	const dismissCoach = () => {
-		try {
-			localStorage.setItem('nframe:onboarded', '1');
-		} catch {
-			/* ignore */
-		}
-		setCoach(false);
-	};
-
 	const scene = scenes.find((s) => s.id === selectedSceneId) || scenes[0] || null;
 	const sceneAspect = scene?.aspectRatio || '16:9';
 
@@ -606,33 +590,6 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		setRecipesOpen(false);
 	};
 
-	const printStoryboard = () => {
-		if (!scene) return;
-		const html = buildStoryboardHtml(scene.name, visualStyle, scene.shots);
-		const win = window.open('', '_blank');
-		if (!win) {
-			flash('Allow pop-ups to export the storyboard.');
-			return;
-		}
-		win.document.open();
-		win.document.write(html);
-		win.document.close();
-		win.setTimeout(() => win.print(), 400);
-	};
-	const downloadHtml = () => {
-		if (!scene) return;
-		const html = buildStoryboardHtml(scene.name, visualStyle, scene.shots);
-		const blob = new Blob([html], { type: 'text/html' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `${(scene.name || 'storyboard').replace(/[^\w-]+/g, '-')}-storyboard.html`;
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-		setTimeout(() => URL.revokeObjectURL(url), 1500);
-	};
-
 	const toggleSelectAll = (on: boolean) => {
 		if (scene) setSelected(on ? new Set(scene.shots.map((s) => s.id)) : new Set());
 	};
@@ -661,32 +618,8 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 					setAspectRatio={setAspect}
 					view={view}
 					setView={setView}
-					onAddShot={addShot}
 					savedFlash={savedFlash}
-					onPrint={printStoryboard}
-					onDownloadHtml={downloadHtml}
 				/>
-				{coach && (
-					<div className="nf-coach">
-						<div className="nf-coach-main">
-							<strong>Welcome to FramePick Studio — 3 steps to your first shot</strong>
-							<ol>
-								<li>
-									<b>Set the Visual Style</b> in Section A (or pick a Recipe) — the lighting &amp; color grade for every shot.
-								</li>
-								<li>
-									Describe the <b>subject + action</b>, attach a <b>Hero</b> reference (the subject), an optional <b>Composition</b> reference (the layout to drop it into), and set the <b>Frame</b> (camera/composition).
-								</li>
-								<li>
-									<b>Generate</b> — you'll get variants to compare and favorite.
-								</li>
-							</ol>
-						</div>
-						<button type="button" className="nf-coach-x" onClick={dismissCoach}>
-							Got it
-						</button>
-					</div>
-				)}
 				<SectionA
 					value={visualStyle}
 					onChange={setVisualStyle}

@@ -13,15 +13,11 @@ const TABS: { id: TabKey; label: string }[] = [
 export function Header({
 	tab,
 	setTab,
-	dark,
-	setDark,
 	onApiKeys,
 	onInbox,
 }: {
 	tab: TabKey;
 	setTab: (t: TabKey) => void;
-	dark: boolean;
-	setDark: (v: boolean) => void;
 	onApiKeys: () => void;
 	onInbox: () => void;
 }) {
@@ -86,26 +82,6 @@ export function Header({
 					<FramePickLogo size={16} />
 					<span>Inbox</span>
 					{fpCount > 0 && <em className="nf-inbox-badge">{fpCount}</em>}
-				</button>
-				<button
-					title="Dark mode"
-					onClick={() => setDark(!dark)}
-					style={{
-						width: 32,
-						height: 32,
-						border: 'none',
-						background: 'transparent',
-						borderRadius: 8,
-						cursor: 'pointer',
-						color: 'var(--muted)',
-						display: 'inline-flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-					}}
-					onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--card-2)')}
-					onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-				>
-					{Icons.moon}
 				</button>
 				<button
 					onClick={onApiKeys}
