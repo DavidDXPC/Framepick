@@ -21,12 +21,12 @@ export function App() {
 		const pal = PALETTES[tweaks.palette] || PALETTES.apple;
 		const root = document.documentElement;
 		if (pal === PALETTES.apple) {
-			root.style.setProperty('--accent-strong', '#5B50E6');
-			root.style.setProperty('--accent-ink', '#4A3FD6');
-			root.style.setProperty('--placeholder-bg', '#EBECF2');
-			root.style.setProperty('--placeholder-ink', '#B2B4C0');
-			root.style.setProperty('--border-strong', '#D6D7DE');
-			root.style.setProperty('--divider', '#EDEDF1');
+			root.style.setProperty('--accent-strong', '#0060df');
+			root.style.setProperty('--accent-ink', '#0060df');
+			root.style.setProperty('--placeholder-bg', '#EAEAEC');
+			root.style.setProperty('--placeholder-ink', '#B0B0B6');
+			root.style.setProperty('--border-strong', 'rgba(0,0,0,.16)');
+			root.style.setProperty('--divider', 'rgba(0,0,0,.06)');
 		}
 		Object.entries(pal.vars).forEach(([k, v]) => root.style.setProperty(k, v));
 		root.setAttribute('data-density', tweaks.density);
@@ -67,20 +67,25 @@ export function App() {
 	}, [items, view]);
 
 	return (
-		<div className="nf-app-shell-wrap" style={{ width: '100%', margin: 0, padding: '16px 32px 56px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-			<Header
-				tab={tab}
-				setTab={setTab}
-				onApiKeys={() => setApiKeysOpen(true)}
-				onInbox={() => {
-					// the inbox lives on the Shot list page — jump there, then toggle
-					setTab('shot');
-					requestAnimationFrame(() => window.dispatchEvent(new Event('framepick:toggle-inbox')));
-				}}
-			/>
-			{tab === 'shot' && <ShotListPage boardImages={items} />}
-			{tab === 'academy' && <AcademyPage />}
-			{tab === 'moodboard' && <MoodboardPage items={items} setItems={setItems} view={view} setView={setView} saveFailed={saveFailed} />}
+		<div className="ns-app">
+			<div className="ns-wall" />
+			<div className="ns-window">
+				<Header
+					tab={tab}
+					setTab={setTab}
+					onApiKeys={() => setApiKeysOpen(true)}
+					onInbox={() => {
+						// the inbox lives on the Shot list page — jump there, then toggle
+						setTab('shot');
+						requestAnimationFrame(() => window.dispatchEvent(new Event('framepick:toggle-inbox')));
+					}}
+				/>
+				<div className="ns-window-body" data-tab={tab}>
+					{tab === 'shot' && <ShotListPage boardImages={items} />}
+					{tab === 'academy' && <AcademyPage />}
+					{tab === 'moodboard' && <MoodboardPage items={items} setItems={setItems} view={view} setView={setView} saveFailed={saveFailed} />}
+				</div>
+			</div>
 			{apiKeysOpen && <ApiKeysModal onClose={() => setApiKeysOpen(false)} keys={apiKeys} setKeys={setApiKeys} />}
 			<TweaksPanel tweaks={tweaks} setTweak={setTweak} />
 		</div>

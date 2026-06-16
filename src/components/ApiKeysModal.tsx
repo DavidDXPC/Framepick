@@ -46,7 +46,7 @@ export function ApiKeysModal({
 	return (
 		<div
 			onClick={onClose}
-			style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(31,26,20,0.38)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+			style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(20,20,24,0.34)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
 		>
 			<div
 				onClick={(e) => e.stopPropagation()}
@@ -55,7 +55,7 @@ export function ApiKeysModal({
 				aria-label="API keys"
 				tabIndex={-1}
 				ref={dialogRef}
-				style={{ width: 'min(520px, 100%)', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 80px rgba(31,26,20,0.24)', overflow: 'hidden' }}
+				style={{ width: 'min(520px, 100%)', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 40px 110px -20px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(0,0,0,0.06)', overflow: 'hidden' }}
 			>
 				<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px', borderBottom: '1px solid var(--border-soft)' }}>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

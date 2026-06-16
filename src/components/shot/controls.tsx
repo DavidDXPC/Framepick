@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { icons } from '../../lib/icons';
 import { aspectToSizeLabel } from '../../lib/promptBuilder';
 import type { ImageSettings as ImageSettingsType } from '../../state/types';
-import { Row, Segmented, monoInputStyle } from '../ui';
+import { Row, Segmented } from '../ui';
 import { AnchoredPopover, useDismiss } from './popover';
 
 // VariantCount (sh): the 1/2/3/4 variants-to-generate picker.
@@ -68,11 +68,6 @@ export function ImageSettings({ settings, onChange, aspectRatio }: { settings: I
 						label="Variations"
 						sub={`${settings.variations} parallel run${settings.variations === 1 ? '' : 's'}`}
 						control={<Segmented value={String(settings.variations)} onChange={(v) => onChange({ ...settings, variations: parseInt(v, 10) || 1 })} options={['1', '2', '3', '4']} />}
-					/>
-					<Row
-						label="Seed"
-						sub="leave blank for random · use to reproduce"
-						control={<input value={settings.seed} placeholder="random" onChange={(e) => onChange({ ...settings, seed: e.target.value })} style={monoInputStyle} />}
 					/>
 				</div>
 			</AnchoredPopover>

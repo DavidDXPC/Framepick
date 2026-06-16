@@ -109,6 +109,8 @@ export interface MotionRef {
 export interface Shot {
 	id: string;
 	number: number;
+	// Optional human title shown in the rail + workspace header (defaults to "Shot NN").
+	title?: string;
 	description: string;
 	images: ImageItem[];
 	variants: Variant[];
@@ -154,7 +156,6 @@ export interface ImageSettings {
 	background: string;
 	format: string;
 	variations: number;
-	seed: string;
 }
 
 export type TabKey = 'moodboard' | 'shot' | 'academy';

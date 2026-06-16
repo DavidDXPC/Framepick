@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { icons } from '../lib/icons';
 import { loadShotList, saveShotList, loadShotListIdb, saveShotListIdb, getProvider, getKling, downscaleImage } from '../state/persistence';
 import { dopAssist, generateImage, generateVideo, pollVideo } from '../lib/aiAssist';
-import { assembleShotPrompt, shotSignature } from '../lib/promptBuilder';
+import { assembleShotPrompt, shotSignature, buildStoryboardHtml } from '../lib/promptBuilder';
 import { initialScene, newScene, newShot } from '../state/defaults';
 import { mergeRecipeFrame } from '../lib/recipeApply';
 import type { FieldChip, ImageSettings, MoodItem, RefImage, Scene, Shot, Variant } from '../state/types';
@@ -11,6 +10,7 @@ import { Card, PrimaryBtn } from '../components/ui';
 import { Toolbar } from '../components/shot/Toolbar';
 import { SectionA } from '../components/shot/SectionA';
 import { ShotCard } from '../components/shot/ShotCard';
+import { ShotRail } from '../components/shot/ShotRail';
 import { RecipesModal, BoardPicker } from '../components/shot/modals';
 import { ImageEditStage } from '../components/shot/ImageEditStage';
 import { FramePickInbox } from '../components/FramePickInbox';
@@ -26,14 +26,14 @@ interface BoardPick {
 	shotId?: string;
 }
 
-export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToBuild?: (shot: Shot, visualStyle: string) => void; boardImages: MoodItem[] }) {
+export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 	const loaded = useMemo(() => loadShotList() as (ReturnType<typeof loadShotList> & { visualStyleRef?: RefImage | null }) | null, []);
 	const [visualStyle, setVisualStyle] = useState(() => loaded?.visualStyle || '');
 	const [visualStyleRef, setVisualStyleRef] = useState<RefImage | null>(() => loaded?.visualStyleRef || null);
 	const [scenes, setScenes] = useState<Scene[]>(() => (loaded?.scenes?.length ? loaded.scenes : [initialScene()]));
 	const [selectedSceneId, setSelectedSceneId] = useState(() => loaded?.selectedSceneId || loaded?.scenes?.[0]?.id || '');
 	const [view, setView] = useState(() => loaded?.view || 'g3');
-	const [selected, setSelected] = useState<Set<string>>(new Set());
+	const [activeShotId, setActiveShotId] = useState<string>('');
 	const [savedFlash, setSavedFlash] = useState(false);
 	const [editTarget, setEditTarget] = useState<{ shotId: string; imageIndex: number } | null>(null);
 	const [warning, setWarning] = useState('');
@@ -41,9 +41,14 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 	const [boardPick, setBoardPick] = useState<BoardPick | null>(null);
 	const [recipesOpen, setRecipesOpen] = useState(false);
 	const [appliedRecipeId, setAppliedRecipeId] = useState(() => loaded?.appliedRecipeId || '');
-	const [imageSettings, setImageSettings] = useState<ImageSettings>({ quality: 'Low', background: 'Opaque', format: 'PNG', variations: 1, seed: '' });
+	const [imageSettings, setImageSettings] = useState<ImageSettings>({ quality: 'Low', background: 'Opaque', format: 'PNG', variations: 1 });
 	const scene = scenes.find((s) => s.id === selectedSceneId) || scenes[0] || null;
 	const sceneAspect = scene?.aspectRatio || '16:9';
+	// The rail focuses one shot at a time; fall back to the first shot if the
+	// remembered id no longer exists (e.g. after a delete).
+	const activeShot = scene ? scene.shots.find((sh) => sh.id === activeShotId) || scene.shots[0] || null : null;
+	// `view` doubles as the workspace layout: stack | flow | stage (legacy g1/g2/g3 → flow).
+	const layout = view === 'flow' || view === 'stage' || view === 'stack' ? view : 'flow';
 
 	const flash = (msg: string, ms = 4000) => {
 		setWarning(msg);
@@ -368,7 +373,27 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		setScenes((prev) => [...prev, s]);
 		setSelectedSceneId(s.id);
 	};
-	const addShot = () => onScene((s) => ({ ...s, shots: [...s.shots, newShot(s.shots.length + 1)] }));
+	const addShot = () => {
+		if (!scene) return;
+		const ns = newShot(scene.shots.length + 1);
+		onScene((s) => ({ ...s, shots: [...s.shots, ns] }));
+		setActiveShotId(ns.id);
+	};
+
+	// Export the storyboard as a standalone, shareable HTML file.
+	const exportStoryboard = () => {
+		if (!scene) return;
+		const name = scene.name || 'Storyboard';
+		const html = buildStoryboardHtml(name, visualStyle, scene.shots);
+		const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'storyboard'}.html`;
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		setTimeout(() => URL.revokeObjectURL(url), 2000);
+	};
 	const updateShot = (id: string, patch: Partial<Shot>) => onScene((s) => ({ ...s, shots: s.shots.map((sh) => (sh.id !== id ? sh : { ...sh, ...patch })) }));
 
 	// onPatchShot (_e): apply a patch + adjust the per-field "AI suggested" flags
@@ -388,19 +413,17 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 
 	const deleteShot = (id: string) => {
 		onScene((s) => ({ ...s, shots: s.shots.filter((sh) => sh.id !== id).map((sh, i) => ({ ...sh, number: i + 1 })) }));
-		setSelected((prev) => {
-			const next = new Set(prev);
-			next.delete(id);
-			return next;
-		});
 	};
-	const duplicateShot = (shot: Shot) =>
+	const duplicateShot = (shot: Shot) => {
+		const copyId = `shot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 		onScene((s) => {
 			const idx = s.shots.findIndex((sh) => sh.id === shot.id);
-			const copy = { ...JSON.parse(JSON.stringify(shot)), id: `shot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
+			const copy = { ...JSON.parse(JSON.stringify(shot)), id: copyId };
 			const next = idx >= 0 ? [...s.shots.slice(0, idx + 1), copy, ...s.shots.slice(idx + 1)] : [...s.shots, copy];
 			return { ...s, shots: next.map((sh, i) => ({ ...sh, number: i + 1 })) };
 		});
+		setActiveShotId(copyId);
+	};
 	const moveShot = (id: string, dir: number) =>
 		onScene((s) => {
 			const idx = s.shots.findIndex((sh) => sh.id === id);
@@ -422,7 +445,7 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 				const s = newScene(1);
 				setScenes([s]);
 				setSelectedSceneId(s.id);
-				setSelected(new Set());
+				setActiveShotId('');
 			},
 		});
 	};
@@ -430,11 +453,6 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 	// Full reset of a single card: blank shot, same id + number.
 	const resetShot = (id: string) => {
 		onScene((s) => ({ ...s, shots: s.shots.map((sh) => (sh.id === id ? { ...newShot(sh.number), id: sh.id } : sh)) }));
-		setSelected((prev) => {
-			const next = new Set(prev);
-			next.delete(id);
-			return next;
-		});
 	};
 
 	const generate = async (id: string) => {
@@ -590,27 +608,25 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 		setRecipesOpen(false);
 	};
 
-	const toggleSelectAll = (on: boolean) => {
-		if (scene) setSelected(on ? new Set(scene.shots.map((s) => s.id)) : new Set());
-	};
-	const bulkDelete = () => {
-		ask({
-			title: `Delete ${selected.size} shot${selected.size === 1 ? '' : 's'}?`,
-			message: 'The selected shots and their generated images will be deleted. This cannot be undone.',
-			actionLabel: 'Delete',
-			danger: true,
-			onConfirm: () => {
-				onScene((s) => ({ ...s, shots: s.shots.filter((sh) => !selected.has(sh.id)).map((sh, i) => ({ ...sh, number: i + 1 })) }));
-				setSelected(new Set());
-			},
-		});
-	};
-
-	const cols = view.startsWith('g') ? parseInt(view.slice(1), 10) : 0;
-	const allSelected = !!scene && scene.shots.length > 0 && scene.shots.every((s) => selected.has(s.id));
 
 	return (
-		<div className="nf-shot-page" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
+		<div className="nf-shot-page nf-shot-page-rail">
+			<ShotRail
+				shots={scene?.shots || []}
+				activeId={activeShot?.id || ''}
+				onSelect={setActiveShotId}
+				onAdd={addShot}
+				onDuplicate={duplicateShot}
+				onDelete={(shot) =>
+					ask({
+						title: `Delete Shot ${String(shot.number).padStart(2, '0')}?`,
+						message: 'The shot, its references and generated images will be deleted. This cannot be undone.',
+						actionLabel: 'Delete',
+						danger: true,
+						onConfirm: () => deleteShot(shot.id),
+					})
+				}
+			/>
 			<main className="nf-shot-main">
 				<Toolbar
 					scene={scene}
@@ -619,6 +635,7 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 					view={view}
 					setView={setView}
 					savedFlash={savedFlash}
+					onExport={exportStoryboard}
 				/>
 				<SectionA
 					value={visualStyle}
@@ -631,93 +648,53 @@ export function ShotListPage({ onSendShotToBuild, boardImages }: { onSendShotToB
 					onRecipes={() => setRecipesOpen(true)}
 				/>
 				{warning && <div className="nf-warning">{warning}</div>}
-				<div className="nf-timeline-head">
-					<span className="nf-section-label">Project Timeline</span>
-				</div>
-				{scene && (
-					<div className="nf-select-row">
-						<label className="nf-select-label">
-							<span className="nf-checkbox">
-								<input type="checkbox" checked={allSelected} onChange={(e) => toggleSelectAll(e.target.checked)} />
-								<span />
-							</span>
-							<span>Select all</span>
-						</label>
-						{selected.size > 0 && (
-							<div className="nf-bulk-actions">
-								<span>{selected.size} selected</span>
-								<button type="button" className="nf-toolbar-btn" style={{ color: 'var(--danger)' }} onClick={bulkDelete}>
-									{icons.trash}
-									<span>Delete</span>
-								</button>
-							</div>
-						)}
-					</div>
-				)}
-				{scene ? (
-					<div className="nf-shot-grid" style={{ '--shot-cols': cols || 3 } as Any}>
-						{scene.shots.map((shot) => (
-							<ShotCard
-								key={shot.id}
-								shot={shot}
-								aspectRatio={sceneAspect}
-								projectAspect={sceneAspect}
-								visualStyle={visualStyle}
-								selected={selected.has(shot.id)}
-								onSelectChange={(on) =>
-									setSelected((prev) => {
-										const next = new Set(prev);
-										if (on) next.add(shot.id);
-										else next.delete(shot.id);
-										return next;
-									})
-								}
-								onUpdate={(patch) => updateShot(shot.id, patch)}
-								onPatchShot={(patch, clearAiKey, addAiKeys, delAiKey, delAiKeys) => patchShot(shot.id, patch, clearAiKey, addAiKeys, delAiKey, delAiKeys)}
-								onDelete={() =>
-									ask({
-										title: `Delete Shot ${String(shot.number).padStart(2, '0')}?`,
-										message: 'The shot, its references and generated images will be deleted. This cannot be undone.',
-										actionLabel: 'Delete',
-										danger: true,
-										onConfirm: () => deleteShot(shot.id),
-									})
-								}
-								onReset={() =>
-									ask({
-										title: `Reset Shot ${String(shot.number).padStart(2, '0')}?`,
-										message: 'This clears its description, references, settings and generated images.',
-										actionLabel: 'Reset',
-										danger: true,
-										onConfirm: () => resetShot(shot.id),
-									})
-								}
-								onDuplicate={() => duplicateShot(shot)}
-								onMove={(dir) => moveShot(shot.id, dir)}
-								onEditImage={(index) => editImage(shot.id, index)}
-								onGenerate={() => generate(shot.id)}
-								imageSettings={imageSettings}
-								onImageSettings={setImageSettings}
-								onSendToBuild={() => onSendShotToBuild?.(shot, visualStyle)}
-								onSetHeroVariant={setHeroVariant}
-								onFavoriteVariant={favoriteVariant}
-								onDeleteVariant={deleteVariant}
-								onBranchVariant={branchVariant}
-								onPickBoardRef={(shotId, target) => setBoardPick({ target: target === 'sketch' ? 'sketch' : 'talent', shotId })}
-								onClearField={(chip) => clearField(shot.id, chip)}
-								onApplyHeroFrames={() => applyHeroToFrames(shot.id)}
-								heroBusy={!!heroGen[shot.id]}
-								heroProgress={heroGen[shot.id] ? `Applying @hero ${heroGen[shot.id].done}/${heroGen[shot.id].total}…` : undefined}
-								onGenerateVideo={() => generateShotVideo(shot.id)}
-								videoBusy={videoGen[shot.id] !== undefined}
-								videoStatus={videoLabel(shot.id)}
-							/>
-						))}
-						<button className="nf-add-shot-card" type="button" onClick={addShot}>
-							<span>+</span>
-							<span>Add Shot</span>
-						</button>
-					</div>
+				{activeShot ? (
+					<ShotCard
+						key={activeShot.id}
+						shot={activeShot}
+						aspectRatio={sceneAspect}
+						projectAspect={sceneAspect}
+						visualStyle={visualStyle}
+						layout={layout}
+						onUpdate={(patch) => updateShot(activeShot.id, patch)}
+						onPatchShot={(patch, clearAiKey, addAiKeys, delAiKey, delAiKeys) => patchShot(activeShot.id, patch, clearAiKey, addAiKeys, delAiKey, delAiKeys)}
+						onDelete={() =>
+							ask({
+								title: `Delete Shot ${String(activeShot.number).padStart(2, '0')}?`,
+								message: 'The shot, its references and generated images will be deleted. This cannot be undone.',
+								actionLabel: 'Delete',
+								danger: true,
+								onConfirm: () => deleteShot(activeShot.id),
+							})
+						}
+						onReset={() =>
+							ask({
+								title: `Reset Shot ${String(activeShot.number).padStart(2, '0')}?`,
+								message: 'This clears its description, references, settings and generated images.',
+								actionLabel: 'Reset',
+								danger: true,
+								onConfirm: () => resetShot(activeShot.id),
+							})
+						}
+						onDuplicate={() => duplicateShot(activeShot)}
+						onMove={(dir) => moveShot(activeShot.id, dir)}
+						onEditImage={(index) => editImage(activeShot.id, index)}
+						onGenerate={() => generate(activeShot.id)}
+						imageSettings={imageSettings}
+						onImageSettings={setImageSettings}
+						onSetHeroVariant={setHeroVariant}
+						onFavoriteVariant={favoriteVariant}
+						onDeleteVariant={deleteVariant}
+						onBranchVariant={branchVariant}
+						onPickBoardRef={(shotId, target) => setBoardPick({ target: target === 'sketch' ? 'sketch' : 'talent', shotId })}
+						onClearField={(chip) => clearField(activeShot.id, chip)}
+						onApplyHeroFrames={() => applyHeroToFrames(activeShot.id)}
+						heroBusy={!!heroGen[activeShot.id]}
+						heroProgress={heroGen[activeShot.id] ? `Applying @hero ${heroGen[activeShot.id].done}/${heroGen[activeShot.id].total}…` : undefined}
+						onGenerateVideo={() => generateShotVideo(activeShot.id)}
+						videoBusy={videoGen[activeShot.id] !== undefined}
+						videoStatus={videoLabel(activeShot.id)}
+					/>
 				) : (
 					<Card pad={28}>
 						<div className="nf-empty-shot-state">

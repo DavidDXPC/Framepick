@@ -15,8 +15,7 @@ export function ShotCard({
 	aspectRatio,
 	projectAspect,
 	visualStyle,
-	selected,
-	onSelectChange,
+	layout,
 	onUpdate,
 	onPatchShot,
 	onDelete,
@@ -44,8 +43,7 @@ export function ShotCard({
 	aspectRatio: string;
 	projectAspect: string;
 	visualStyle: string;
-	selected: boolean;
-	onSelectChange?: (v: boolean) => void;
+	layout?: string;
 	onUpdate: (patch: Partial<Shot>) => void;
 	onPatchShot: PatchFn;
 	onDelete: () => void;
@@ -56,7 +54,6 @@ export function ShotCard({
 	onGenerate: () => void;
 	imageSettings: ImageSettingsType;
 	onImageSettings: (s: ImageSettingsType) => void;
-	onSendToBuild?: () => void;
 	onSetHeroVariant: (shotId: string, variantId: string) => void;
 	onFavoriteVariant: (shotId: string, variantId: string) => void;
 	onDeleteVariant: (shotId: string, variantId: string) => void;
@@ -83,13 +80,15 @@ export function ShotCard({
 	const chips = fieldChips(shot);
 
 	return (
-		<article className="nf-shot-card">
+		<article className="nf-shot-card" data-layout={layout}>
 			<header className="nf-shot-card-header">
-				<label className="nf-checkbox">
-					<input type="checkbox" checked={!!selected} onChange={(e) => onSelectChange?.(e.target.checked)} />
-					<span />
-				</label>
-				<strong>Shot {String(shot.number).padStart(2, '0')}</strong>
+				<input
+					className="nf-shot-title-input"
+					value={shot.title ?? ''}
+					placeholder={`Shot ${String(shot.number).padStart(2, '0')}`}
+					aria-label="Shot title"
+					onChange={(e) => onUpdate({ title: e.target.value })}
+				/>
 				<div className="nf-card-menu" ref={menuRef}>
 					<button type="button" className="nf-icon-button" ref={menuBtnRef} onClick={() => setMenuOpen((o) => !o)} title="Shot options">
 						{icons.more}

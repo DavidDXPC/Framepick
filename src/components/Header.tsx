@@ -10,6 +10,9 @@ const TABS: { id: TabKey; label: string }[] = [
 	{ id: 'academy', label: 'Academy' },
 ];
 
+// The window toolbar — frosted macOS chrome. Traffic lights are a decorative
+// motif (aria-hidden, not controls). The Inbox count is the real, live signal
+// that the FramePick extension has delivered handoffs.
 export function Header({
 	tab,
 	setTab,
@@ -23,85 +26,36 @@ export function Header({
 }) {
 	const fpCount = useSyncExternalStore(subscribeInbox, inboxCount);
 	return (
-		<header
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: 16,
-				flexWrap: 'wrap',
-				padding: '10px 14px',
-				borderRadius: 14,
-				background: 'var(--card)',
-				border: '1px solid var(--border)',
-				boxShadow: 'var(--shadow-soft)',
-			}}
-		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 6 }}>
-				<FramePickLogo size={24} tile />
-				<span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)' }}>FramePick</span>
+		<header className="ns-toolbar">
+			<span className="ns-lights" aria-hidden="true">
+				<i className="r" />
+				<i className="y" />
+				<i className="g" />
+			</span>
+			<div className="ns-brand">
+				<FramePickLogo size={22} tile />
+				<span>FramePick</span>
 			</div>
 
-			<nav
-				style={{
-					margin: '0 auto',
-					display: 'inline-flex',
-					padding: 3,
-					background: 'var(--card-2)',
-					borderRadius: 999,
-					border: '1px solid var(--border-soft)',
-					overflowX: 'auto',
-					maxWidth: '100%',
-				}}
-			>
-				{TABS.map((t) => {
-					const active = tab === t.id;
-					return (
-						<button
-							key={t.id}
-							onClick={() => setTab(t.id)}
-							style={{
-								padding: '7px 16px',
-								fontSize: 13.5,
-								fontWeight: 500,
-								color: active ? 'var(--primary-foreground, #FFFFFF)' : 'var(--ink-2)',
-								background: active ? 'var(--primary, var(--ink))' : 'transparent',
-								border: 'none',
-								borderRadius: 999,
-								cursor: 'pointer',
-								transition: 'background 140ms, color 140ms',
-							}}
-						>
-							{t.label}
-						</button>
-					);
-				})}
+			<nav className="ns-tabs" aria-label="Sections">
+				{TABS.map((t) => (
+					<button key={t.id} type="button" className={'ns-tab' + (tab === t.id ? ' on' : '')} aria-current={tab === t.id} onClick={() => setTab(t.id)}>
+						{t.label}
+					</button>
+				))}
 			</nav>
 
-			<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+			<div className="ns-toolbar-right">
 				<button type="button" className="nf-inbox-btn" title="FramePick Inbox — compositions & motion sent from the extension" onClick={onInbox}>
 					<FramePickLogo size={16} />
 					<span>Inbox</span>
 					{fpCount > 0 && <em className="nf-inbox-badge">{fpCount}</em>}
 				</button>
-				<button
-					onClick={onApiKeys}
-					style={{
-						display: 'inline-flex',
-						alignItems: 'center',
-						gap: 8,
-						padding: '7px 12px',
-						fontSize: 13,
-						fontWeight: 500,
-						color: 'var(--ink-2)',
-						background: 'var(--card)',
-						border: '1px solid var(--border)',
-						borderRadius: 999,
-						cursor: 'pointer',
-					}}
-				>
-					<span style={{ color: 'var(--accent)' }}>{Icons.key}</span>
+				<button type="button" className="ns-tb-btn" onClick={onApiKeys}>
+					<span className="nf-accent-ic">{Icons.key}</span>
 					API keys
 				</button>
+				<span className="ns-avatar" title="david.comprido@prozis.com">DC</span>
 			</div>
 		</header>
 	);

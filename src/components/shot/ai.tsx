@@ -77,32 +77,19 @@ export function EnhancePill({
 	const [open, setOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [err, setErr] = useState('');
+	const [stage, setStage] = useState<'root' | 'custom'>('root');
+	const [customText, setCustomText] = useState('');
 	const wrapRef = useDismiss(open, setOpen) as React.RefObject<HTMLSpanElement>;
 	const btnRef = useRef<HTMLButtonElement>(null);
 
-	const run = async (mode: EnhanceMode) => {
-		let action = mode.id;
-		let custom = '';
-		// gather (and require) the reference images this mode reads, in order
-		const images: string[] = [];
-		for (const need of mode.needs || []) {
-			const img = need === 'talent' ? talentImage : sketchImage;
-			if (!img) {
-				setOpen(false);
-				setErr(`Add a ${need === 'talent' ? 'Hero' : 'Composition'} reference first.`);
-				window.setTimeout(() => setErr(''), 4000);
-				return;
-			}
-			images.push(img);
+	useEffect(() => {
+		if (!open) {
+			setStage('root');
+			setCustomText('');
 		}
-		if (mode.instruction) {
-			// scoped mode → run as a fixed custom instruction
-			action = 'custom';
-			custom = mode.instruction;
-		} else if (mode.id === 'custom') {
-			custom = window.prompt('Custom instruction', 'Make it feel more cinematic') || '';
-			if (!custom.trim()) return;
-		}
+	}, [open]);
+
+	const execute = async (action: string, custom: string, images: string[]) => {
 		setOpen(false);
 		setLoading(true);
 		setErr('');
@@ -117,6 +104,28 @@ export function EnhancePill({
 		}
 	};
 
+	const run = (mode: EnhanceMode) => {
+		// gather (and require) the reference images this mode reads, in order
+		const images: string[] = [];
+		for (const need of mode.needs || []) {
+			const img = need === 'talent' ? talentImage : sketchImage;
+			if (!img) {
+				setOpen(false);
+				setErr(`Add a ${need === 'talent' ? 'Hero' : 'Composition'} reference first.`);
+				window.setTimeout(() => setErr(''), 4000);
+				return;
+			}
+			images.push(img);
+		}
+		if (mode.instruction) {
+			execute('custom', mode.instruction, images); // scoped → fixed instruction
+		} else if (mode.id === 'custom') {
+			setStage('custom'); // inline textarea — replaces the native window.prompt
+		} else {
+			execute(mode.id, '', images);
+		}
+	};
+
 	return (
 		<span className="nf-ai-pill-wrap" ref={wrapRef}>
 			<button type="button" className={'nf-enhance-pill' + (loading ? ' loading' : '')} ref={btnRef} onClick={() => setOpen((o) => !o)} disabled={loading} title="AI assist">
@@ -126,16 +135,32 @@ export function EnhancePill({
 			{err && <span className="nf-ai-err">{err}</span>}
 			<AnchoredPopover anchorRef={btnRef} open={open} align="right" width={262}>
 				<div className="nf-popover nf-ai-menu">
-					<div className="nf-popover-title">{fieldLabel}</div>
-					{modes.map((m) => (
-						<button key={m.id} type="button" className="nf-ai-mode" onClick={() => run(m)}>
-							<span className="nf-ai-mode-ic">{icons.spark}</span>
-							<span>
-								<strong>{m.label}</strong>
-								<em>{m.hint}</em>
-							</span>
-						</button>
-					))}
+					{stage === 'root' ? (
+						<>
+							<div className="nf-popover-title">{fieldLabel}</div>
+							{modes.map((m) => (
+								<button key={m.id} type="button" className="nf-ai-mode" onClick={() => run(m)}>
+									<span className="nf-ai-mode-ic">{icons.spark}</span>
+									<span>
+										<strong>{m.label}</strong>
+										<em>{m.hint}</em>
+									</span>
+								</button>
+							))}
+						</>
+					) : (
+						<div className="nf-ai-custom">
+							<textarea value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="e.g. make it feel more cinematic" rows={2} autoFocus />
+							<div className="nf-ai-custom-actions">
+								<button type="button" className="nf-toolbar-btn" onClick={() => setStage('root')}>
+									Back
+								</button>
+								<button type="button" className="nf-primary-btn" disabled={!customText.trim()} onClick={() => execute('custom', customText.trim(), [])}>
+									Apply
+								</button>
+							</div>
+						</div>
+					)}
 				</div>
 			</AnchoredPopover>
 		</span>

@@ -100,7 +100,7 @@ export function MoodboardPage({ items, setItems, view, setView, saveFailed }: Mo
 				w: 160,
 				h: 40,
 				rotation: 0,
-				color: '#1A1A1A',
+				color: '#1d1d1f',
 				size: 28,
 			},
 		]);

@@ -1663,6 +1663,20 @@ export function ImageEditStage({
 		}
 	};
 
+	// Ctrl/Cmd+S saves the edited image (the Save button advertises this shortcut).
+	// Bound in its own effect, declared after `save`, so it always closes over the
+	// latest edit state (filters, crop, adjustments, annotations).
+	React.useEffect(() => {
+		const onSave = (e: KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+				e.preventDefault();
+				save();
+			}
+		};
+		window.addEventListener('keydown', onSave);
+		return () => window.removeEventListener('keydown', onSave);
+	}, [save]);
+
 	const swatchBg = `url("${sourceUrl}")`;
 	const stepZoom = (delta: number) =>
 		setZoom((z) => Math.max(0.25, Math.min(3, parseFloat((z + delta).toFixed(2)))));
@@ -1786,7 +1800,6 @@ export function ImageEditStage({
 				<nav className="nf-ies-toolbar" aria-label="Editor tools">
 					{[
 						{ id: 'crop', label: 'Crop', icon: iesIcons.crop },
-						{ id: 'reframe', label: 'Reframe', icon: iesIcons.reframe },
 						{ id: 'finetune', label: 'Fine-tune', icon: iesIcons.finetune },
 						{ id: 'filter', label: 'Filter', icon: iesIcons.filter },
 						{ id: 'annotate', label: 'Annotate', icon: iesIcons.annotate },

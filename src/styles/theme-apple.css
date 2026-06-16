@@ -1,0 +1,256 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   nFrame Studio — Apple system theme layer
+   Loaded AFTER app.css so it wins the cascade for every non-inline token.
+   App.tsx still sets the palette subset inline (authoritative) — those values
+   were migrated to system-blue too, so the two never disagree.
+   Design language ported from "nFrame Studio.html".
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+	/* surfaces */
+	--app-bg: #F5F5F7;
+	--bg: #F5F5F7;
+	--bg-2: #F2F2F4;
+	--bg-soft: #F2F2F4;
+	--content: #F5F5F7;
+	--surface: #FFFFFF;
+	--surface-2: #F2F2F4;
+	--surface-muted: #F2F2F4;
+	--surface-selected: rgba(10, 132, 255, 0.12);
+	--card: #FFFFFF;
+	--card-2: #F2F2F4;
+
+	/* separators / borders */
+	--border: rgba(0, 0, 0, 0.1);
+	--border-soft: rgba(0, 0, 0, 0.06);
+	--border-strong: rgba(0, 0, 0, 0.16);
+	--divider: rgba(0, 0, 0, 0.06);
+	--sep: rgba(0, 0, 0, 0.1);
+	--sep-2: rgba(0, 0, 0, 0.06);
+
+	/* ink ramp */
+	--ink: #1d1d1f;
+	--ink-2: #48484a;
+	--ink-3: #6e6e73;
+	--muted: #6e6e73;
+	--faint: #8e8e93;
+	--text-primary: #1d1d1f;
+	--text-secondary: #48484a;
+	--text-muted: #6e6e73;
+
+	/* accent (system blue) */
+	--accent: #0A84FF;
+	--accent-2: #0060df;
+	--accent-strong: #0060df;
+	--accent-ink: #0060df;
+	--accent-soft: rgba(10, 132, 255, 0.12);
+	--accent-bg: rgba(10, 132, 255, 0.12);
+
+	/* secondary + status hues */
+	--amber: #C77A1A;
+	--amber-soft: rgba(199, 122, 26, 0.14);
+	--orange: #FF9F0A;
+	--green: #30D158;
+	--red: #FF453A;
+	--danger: #FF453A;
+	--danger-soft: rgba(255, 69, 58, 0.12);
+	--success: #30D158;
+
+	/* translucent fills */
+	--fill-1: rgba(120, 120, 128, 0.16);
+	--fill-2: rgba(120, 120, 128, 0.1);
+	--fill-3: rgba(120, 120, 128, 0.06);
+
+	/* primaries + placeholders */
+	--primary: #1d1d1f;
+	--primary-foreground: #FFFFFF;
+	--placeholder-bg: #EAEAEC;
+	--placeholder-ink: #B0B0B6;
+
+	/* radii */
+	--radius-card: 13px;
+	--r-sm: 6px;
+	--r: 10px;
+	--r-lg: 14px;
+	--r-win: 14px;
+	--r-card: 13px;
+	--r-ctrl: 8px;
+
+	/* density-driven spacing (see [data-density] below) */
+	--pad: 18px;
+	--gap: 18px;
+	--reg-pad: 18px;
+
+	/* shadows */
+	--shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px -10px rgba(0, 0, 0, 0.16);
+	--shadow-sm: 0 0 0 1px var(--border);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--border);
+	--shadow-pop: 0 24px 60px -14px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+	--shadow-win: 0 30px 80px -20px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+
+	/* motion */
+	--ease-spring: cubic-bezier(0.3, 0.9, 0.4, 1.05);
+
+	/* type */
+	--font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter Tight", "Inter", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+/* density tokens — toggled by [data-density] on the root (useTweaks) */
+[data-density="compact"] { --pad: 12px; --gap: 12px; --reg-pad: 12px; }
+[data-density="spacious"] { --pad: 22px; --gap: 22px; --reg-pad: 22px; }
+
+/* Apple negative tracking + crisper rendering */
+body {
+	letter-spacing: -0.006em;
+	-webkit-font-smoothing: antialiased;
+}
+h1, h2, .nf-shot-toolbar h1 { letter-spacing: -0.02em; }
+
+/* signature "eyebrow" section label */
+.nf-section-label {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--faint);
+}
+
+/* tabular figures for numerics (shot #, timecodes, credit meters) */
+.nf-row-num, .nf-scene-count, .nf-vc-trigger, .nf-mb-zoom-val,
+.nf-shot-card-header strong { font-variant-numeric: tabular-nums; }
+
+/* selection via outline (no layout shift) */
+.nf-variant.active, .nf-board-pick:hover { outline-offset: 1px; }
+
+/* re-tint the ambient background glow from lavender → system blue */
+body:before {
+	background:
+		radial-gradient(1100px 600px at 85% -180px, rgba(10, 132, 255, 0.05), transparent 60%),
+		radial-gradient(900px 500px at 0% 110%, rgba(10, 132, 255, 0.03), transparent 60%);
+}
+[data-material="glass"] body:before {
+	background:
+		radial-gradient(1200px 700px at 80% -200px, rgba(10, 132, 255, 0.1), transparent 60%),
+		radial-gradient(900px 600px at 0% 110%, rgba(10, 132, 255, 0.06), transparent 60%) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Window shell — the whole app floats as a macOS window on a gradient desk.
+   Scrolling happens INSIDE .ns-window-body so the toolbar stays pinned and the
+   window keeps its rounded corners. Modals/IES use position:fixed and escape
+   the window to cover the full viewport (no transformed ancestor clips them).
+   ───────────────────────────────────────────────────────────────────────── */
+.ns-app { height: 100vh; padding: 18px; display: flex; position: relative; overflow: hidden; }
+.ns-wall { position: absolute; inset: 0; z-index: 0; background: linear-gradient(135deg, #acbcd8, #c6b8d6 46%, #e3c4ba); }
+.ns-window {
+	position: relative; z-index: 1; flex: 1; min-width: 0;
+	display: flex; flex-direction: column;
+	background: var(--content); border-radius: var(--r-win);
+	overflow: hidden; box-shadow: var(--shadow-win);
+}
+.ns-window-body { flex: 1; min-height: 0; overflow: auto; padding: 18px 24px 44px; }
+.ns-window-body[data-tab="moodboard"] { padding: 0; overflow: hidden; }
+.ns-window-body[data-tab="moodboard"] .nf-mb { height: 100%; min-height: 0; }
+@media (max-width: 760px) { .ns-app { padding: 0; } .ns-window { border-radius: 0; } .ns-window-body { padding: 14px 14px 32px; } }
+
+/* ── toolbar (frosted window chrome) ── */
+.ns-toolbar {
+	display: flex; align-items: center; gap: 12px; flex: 0 0 auto;
+	padding: 11px 16px;
+	background: rgba(246, 246, 248, 0.82);
+	backdrop-filter: saturate(180%) blur(20px);
+	-webkit-backdrop-filter: saturate(180%) blur(20px);
+	border-bottom: 0.5px solid var(--sep);
+}
+.ns-lights { display: inline-flex; gap: 8px; margin-right: 4px; }
+.ns-lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.ns-lights .r { background: #ff5f57; } .ns-lights .y { background: #febc2e; } .ns-lights .g { background: #28c840; }
+.ns-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 680; letter-spacing: -0.01em; color: var(--ink); }
+.ns-tabs { margin: 0 auto; display: inline-flex; gap: 2px; padding: 3px; background: var(--fill-2); border-radius: 999px; border: 0.5px solid var(--sep-2); overflow-x: auto; max-width: 100%; }
+.ns-tab { padding: 7px 16px; font-size: 13.5px; font-weight: 560; color: var(--ink-2); background: transparent; border: none; border-radius: 999px; cursor: pointer; white-space: nowrap; transition: background 0.14s, color 0.14s; }
+.ns-tab:hover:not(.on) { color: var(--ink); }
+.ns-tab.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.ns-toolbar-right { display: inline-flex; align-items: center; gap: 8px; }
+.ns-tb-btn { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border: 1px solid var(--border); background: var(--card); border-radius: 999px; color: var(--ink-2); font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s; }
+.ns-tb-btn:hover { background: var(--card-2); color: var(--ink); border-color: var(--border-strong); }
+.ns-tb-btn .nf-accent-ic { color: var(--accent); display: inline-flex; }
+.ns-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #0A84FF, #0060df); color: #fff; font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; box-shadow: 0 1px 3px rgba(10, 132, 255, 0.4); }
+@media (max-width: 640px) { .ns-lights { display: none; } .ns-brand span { display: none; } }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Shot rail — a slim filmstrip down the left of the shot workspace. Replaces
+   the old all-shots grid: the rail is the overview, the workspace shows one
+   focused shot at a time.
+   ───────────────────────────────────────────────────────────────────────── */
+.nf-shot-page-rail { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 18px; align-items: start; }
+.nf-rail { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 2px 0 12px; }
+.nf-rail-head { font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); margin-bottom: 2px; }
+.nf-rail-item { width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.nf-rail-thumb { width: 64px; height: 40px; border-radius: 9px; overflow: hidden; position: relative; background: var(--placeholder-bg); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14); outline: 2px solid transparent; outline-offset: 2px; transition: outline-color 0.13s, transform 0.13s; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--placeholder-ink); }
+.nf-rail-item:hover .nf-rail-thumb { transform: translateY(-1px); }
+.nf-rail-item.on .nf-rail-thumb { outline-color: var(--accent); }
+.nf-rail-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.nf-rail-thumb-empty { display: inline-flex; }
+.nf-rail-dot { position: absolute; left: 4px; top: 4px; width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.25); }
+.nf-rail-dot.ready { background: var(--green); }
+.nf-rail-dot.generating { background: var(--orange); animation: pip-flash 0.9s ease-in-out infinite alternate; }
+.nf-rail-dot.draft { background: var(--faint); }
+.nf-rail-vid { position: absolute; right: 4px; bottom: 4px; width: 15px; height: 15px; border-radius: 50%; background: rgba(0, 0, 0, 0.5); color: #fff; display: flex; align-items: center; justify-content: center; }
+.nf-rail-vid svg { width: 9px; height: 9px; }
+.nf-rail-acts { position: absolute; top: 3px; right: 3px; display: flex; gap: 3px; opacity: 0; transform: translateY(-2px); transition: 0.12s; }
+.nf-rail-thumb:hover .nf-rail-acts, .nf-rail-thumb:focus-visible .nf-rail-acts { opacity: 1; transform: none; }
+.nf-rail-act { width: 18px; height: 18px; border-radius: 5px; border: 0; background: rgba(20, 20, 22, 0.62); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: background 0.1s; }
+.nf-rail-act svg { width: 11px; height: 11px; }
+.nf-rail-act:hover { background: rgba(20, 20, 22, 0.9); }
+.nf-rail-act.danger:hover { background: var(--red); }
+.nf-rail-n { font-size: 10px; font-weight: 700; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.nf-rail-item.on .nf-rail-n { color: var(--accent); }
+.nf-rail-add { width: 64px; height: 40px; border: 1.5px dashed var(--border-strong); background: transparent; border-radius: 9px; color: var(--faint); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.12s; }
+.nf-rail-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.nf-rail-add svg { width: 18px; height: 18px; }
+
+/* inline-editable shot title in the card header */
+.nf-shot-title-input { font: inherit; font-size: 13px; font-weight: 600; letter-spacing: 0.01em; color: var(--ink); background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 3px 7px; margin-left: -7px; outline: none; min-width: 0; flex: 1; transition: background 0.12s, border-color 0.12s; }
+.nf-shot-title-input:hover { background: var(--fill-3); }
+.nf-shot-title-input:focus { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.nf-shot-title-input::placeholder { color: var(--faint); font-weight: 600; }
+
+@media (max-width: 760px) {
+	.nf-shot-page-rail { grid-template-columns: 1fr; }
+	.nf-rail { position: static; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
+	.nf-rail-head { width: 100%; }
+}
+
+/* icon-only segmented button (layout switcher) */
+.nf-seg-btn.nf-seg-ico { display: inline-flex; align-items: center; justify-content: center; padding: 0 11px; }
+.nf-seg-btn.nf-seg-ico svg { display: block; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Workspace layouts — driven by data-layout on the focused .nf-shot-card.
+   stack = vertical (default flex column); flow = controls left / preview right;
+   stage = output-forward, enlarged preview. Pure CSS over the existing markup
+   (header · .nf-media-shell · .nf-shot-card-body), no component restructure.
+   ───────────────────────────────────────────────────────────────────────── */
+.nf-shot-card[data-layout="flow"] {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) clamp(320px, 40%, 480px);
+	grid-template-areas: "head head" "body media";
+	align-items: start;
+}
+.nf-shot-card[data-layout="flow"] > header { grid-area: head; }
+.nf-shot-card[data-layout="flow"] > .nf-shot-card-body { grid-area: body; }
+.nf-shot-card[data-layout="flow"] > .nf-media-shell {
+	grid-area: media;
+	border-bottom: none;
+	border-left: 1px solid var(--border-soft);
+	align-self: stretch;
+	align-items: flex-start;
+}
+.nf-shot-card[data-layout="flow"] > .nf-media-shell .nf-media-frame { max-width: none; }
+
+.nf-shot-card[data-layout="stage"] > .nf-media-shell { padding: 16px; }
+.nf-shot-card[data-layout="stage"] > .nf-media-shell .nf-media-frame { max-width: min(760px, 100%); }
+
+@media (max-width: 900px) {
+	.nf-shot-card[data-layout="flow"] { display: flex; flex-direction: column; }
+	.nf-shot-card[data-layout="flow"] > .nf-media-shell { border-left: none; border-bottom: 1px solid var(--border-soft); }
+}
