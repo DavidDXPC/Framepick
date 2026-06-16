@@ -97,7 +97,7 @@ function HeroPromptText({ prompt }: { prompt: string }) {
 // workflow needs in one card: keyframe strip (Source / @hero views), the
 // @hero video prompt, Copy (resolved against the Hero slot) and the
 // "Apply @hero to Frames" generator.
-function CompositionFrames({
+export function CompositionFrames({
 	motionRef,
 	description,
 	hasHeroRef,
@@ -168,7 +168,10 @@ function CompositionFrames({
 					{icons.x}
 				</button>
 			</div>
-			<div className="nf-comp-strip" title="Motion keyframes — they guide the hero's placement, framing, scale, timing and continuity. They are never the final subject.">
+			<div
+				className="nf-comp-strip"
+				title="Motion keyframes — they guide the hero's placement, framing, scale, timing and continuity. They are never the final subject."
+			>
 				{frames.map((f, i) => (
 					<figure key={`${view}-${i}`}>
 						<img src={f.src} alt="" />
@@ -198,7 +201,12 @@ function CompositionFrames({
 					>
 						<HeroPromptText prompt={prompt} />
 					</div>
-					<button type="button" className="nf-comp-copy" title="Copy the video prompt with @hero resolved to this shot's Hero" onClick={copyResolved}>
+					<button
+						type="button"
+						className="nf-comp-copy"
+						title="Copy the video prompt with @hero resolved to this shot's Hero"
+						onClick={copyResolved}
+					>
 						{copied ? '✓' : icons.copy}
 					</button>
 				</div>
@@ -212,7 +220,13 @@ function CompositionFrames({
 				</div>
 			)}
 			<div className="nf-comp-foot">
-				<span className="nf-comp-hint">{hasHeroRef ? '@hero → your Hero reference' : description?.trim() ? '@hero → your description' : 'Add a Hero or description to resolve @hero'}</span>
+				<span className="nf-comp-hint">
+					{hasHeroRef
+						? '@hero → your Hero reference'
+						: description?.trim()
+							? '@hero → your description'
+							: 'Add a Hero or description to resolve @hero'}
+				</span>
 				{onApplyHero && (
 					<button
 						type="button"
@@ -333,7 +347,17 @@ export function DescriptionBlock({
 						rows={3}
 					/>
 					<span className="nf-desc-enhance">
-						<EnhancePill fieldLabel="Description" value={value} visualStyle={visualStyle} description={value} onResult={onChange} compact modes={DESCRIPTION_ENHANCE_MODES} talentImage={talentRef?.src} sketchImage={sketchRef?.src} />
+						<EnhancePill
+							fieldLabel="Description"
+							value={value}
+							visualStyle={visualStyle}
+							description={value}
+							onResult={onChange}
+							compact
+							modes={DESCRIPTION_ENHANCE_MODES}
+							talentImage={talentRef?.src}
+							sketchImage={sketchRef?.src}
+						/>
 					</span>
 				</div>
 			</div>

@@ -141,7 +141,10 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 		// The model can't see image *names* — only their order. So the contract is
 		// ordinal: image 1 = the scene being edited, image 2 = the subject to
 		// insert. The original subject must be removed, not restyled.
-		const heroSubject = (sh.description || '').trim().split(/(?<=[.!?])\s/)[0].slice(0, 160);
+		const heroSubject = (sh.description || '')
+			.trim()
+			.split(/(?<=[.!?])\s/)[0]
+			.slice(0, 160);
 		const prompt =
 			`Produce exactly ONE single, full-frame photograph — never a split screen, diptych, side-by-side, before/after, collage or grid. ` +
 			`There are two input images. Image 1 is a COMPOSITION GUIDE: read ONLY its camera angle, framing, subject placement, scale, orientation and lighting direction from it. Image 2 is the HERO — the real subject. ` +
@@ -189,11 +192,16 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 						prompt: `@hero frame · ${r.t.toFixed(1)}s`,
 					}));
 					const variants = [...newVariants, ...(x.variants || [])];
-					const images = x.images?.length ? x.images : [{ id: `img-${Date.now()}`, src: results[0].src, originalUrl: results[0].src, name: `shot-${x.number}-hero-frame` }];
+					const images = x.images?.length
+						? x.images
+						: [{ id: `img-${Date.now()}`, src: results[0].src, originalUrl: results[0].src, name: `shot-${x.number}-hero-frame` }];
 					return { ...x, motionRef: x.motionRef ? { ...x.motionRef, heroFrames: guides } : x.motionRef, variants, images };
 				}),
 			}));
-			flash(`Generated ${results.length} @hero frame${results.length === 1 ? '' : 's'} — see the Composition strip (@hero) and the shot's variants.`, 5200);
+			flash(
+				`Generated ${results.length} @hero frame${results.length === 1 ? '' : 's'} — see the Composition strip (@hero) and the shot's variants.`,
+				5200,
+			);
 		}
 		setHeroGen((g) => {
 			const next = { ...g };
@@ -278,7 +286,8 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 				aspectRatio: aspect,
 				mode: vs.mode,
 			});
-			const phaseOf = (status: string): VideoJob['phase'] => (status === 'succeed' ? 'finish' : status === 'processing' ? 'render' : 'queued');
+			const phaseOf = (status: string): VideoJob['phase'] =>
+				status === 'succeed' ? 'finish' : status === 'processing' ? 'render' : 'queued';
 			const url = await pollVideo(kling, taskId, (status) =>
 				setVideoGen((g) => (g[shotId] ? { ...g, [shotId]: { ...g[shotId], phase: phaseOf(status) } } : g)),
 			);
@@ -394,10 +403,18 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 		a.remove();
 		setTimeout(() => URL.revokeObjectURL(url), 2000);
 	};
-	const updateShot = (id: string, patch: Partial<Shot>) => onScene((s) => ({ ...s, shots: s.shots.map((sh) => (sh.id !== id ? sh : { ...sh, ...patch })) }));
+	const updateShot = (id: string, patch: Partial<Shot>) =>
+		onScene((s) => ({ ...s, shots: s.shots.map((sh) => (sh.id !== id ? sh : { ...sh, ...patch })) }));
 
 	// onPatchShot (_e): apply a patch + adjust the per-field "AI suggested" flags
-	const patchShot = (id: string, patch: Partial<Shot>, clearAiKey?: string | null, addAiKeys?: string[], delAiKey?: string | null, delAiKeys?: string[] | null) =>
+	const patchShot = (
+		id: string,
+		patch: Partial<Shot>,
+		clearAiKey?: string | null,
+		addAiKeys?: string[],
+		delAiKey?: string | null,
+		delAiKeys?: string[] | null,
+	) =>
 		onScene((s) => ({
 			...s,
 			shots: s.shots.map((sh) => {
@@ -462,7 +479,11 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 		// the motion @hero prompt can resolve to. The raw clip prompt is never
 		// used as a subject — it would re-describe the source's own subject.
 		if (!(shot.description || '').trim() && !(shot.motionRef?.heroPrompt && shot.talentRef?.src)) {
-			flash(shot.motionRef ? 'Attach a Hero (or write a description) — @hero needs a subject to resolve to.' : 'Add a description before generating — describe the shot first.');
+			flash(
+				shot.motionRef
+					? 'Attach a Hero (or write a description) — @hero needs a subject to resolve to.'
+					: 'Add a description before generating — describe the shot first.',
+			);
 			return;
 		}
 		if (!visualStyle.trim()) {
@@ -508,7 +529,9 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 				shots: s.shots.map((sh) => {
 					if (sh.id !== id) return sh;
 					const variants = [...newVariants, ...(sh.variants || [])];
-					const images = sh.images?.length ? sh.images : [{ id: `img-${Date.now()}`, src: newVariants[0].src, originalUrl: newVariants[0].src, name: `shot-${sh.number}` }];
+					const images = sh.images?.length
+						? sh.images
+						: [{ id: `img-${Date.now()}`, src: newVariants[0].src, originalUrl: newVariants[0].src, name: `shot-${sh.number}` }];
 					return { ...sh, variants, images, generating: false, error: '', lastGeneratedSig: shotSignature(sh) };
 				}),
 			}));
@@ -538,7 +561,10 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 			}),
 		}));
 	const deleteVariant = (id: string, variantId: string) =>
-		onScene((s) => ({ ...s, shots: s.shots.map((sh) => (sh.id === id ? { ...sh, variants: (sh.variants || []).filter((v) => v.id !== variantId) } : sh)) }));
+		onScene((s) => ({
+			...s,
+			shots: s.shots.map((sh) => (sh.id === id ? { ...sh, variants: (sh.variants || []).filter((v) => v.id !== variantId) } : sh)),
+		}));
 	const branchVariant = (shot: Shot, variant: Variant) =>
 		onScene((s) => {
 			const idx = s.shots.findIndex((sh) => sh.id === shot.id);
@@ -567,7 +593,15 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 				if (sh.id !== editTarget.shotId) return sh;
 				const images = [...(sh.images || [])];
 				const img = images[editTarget.imageIndex];
-				if (img) images[editTarget.imageIndex] = { ...img, originalUrl: img.originalUrl || originalUrl || img.src, editedUrl: url, src: url, edits, updatedAt: Date.now() };
+				if (img)
+					images[editTarget.imageIndex] = {
+						...img,
+						originalUrl: img.originalUrl || originalUrl || img.src,
+						editedUrl: url,
+						src: url,
+						edits,
+						updatedAt: Date.now(),
+					};
 				return { ...sh, images };
 			}),
 		}));
@@ -578,7 +612,13 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 		const shot = scene?.shots.find((s) => s.id === shotId);
 		if (!shot) return;
 		if (chip.group === 'lighting') {
-			patchShot(shotId, { frame: { ...shot.frame, lighting: { ...shot.frame.lighting, [chip.key]: chip.multi ? [] : '' } } }, null, [], 'lighting');
+			patchShot(
+				shotId,
+				{ frame: { ...shot.frame, lighting: { ...shot.frame.lighting, [chip.key]: chip.multi ? [] : '' } } },
+				null,
+				[],
+				'lighting',
+			);
 		} else if (chip.group === 'lens') {
 			patchShot(shotId, { frame: { ...shot.frame, lens: { focalLength: '', character: '' } } }, null, [], 'lens');
 		} else if (chip.group === 'frame') {
@@ -608,7 +648,6 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 		setRecipesOpen(false);
 	};
 
-
 	return (
 		<div className="nf-shot-page nf-shot-page-rail">
 			<ShotRail
@@ -628,15 +667,7 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 				}
 			/>
 			<main className="nf-shot-main">
-				<Toolbar
-					scene={scene}
-					aspectRatio={sceneAspect}
-					setAspectRatio={setAspect}
-					view={view}
-					setView={setView}
-					savedFlash={savedFlash}
-					onExport={exportStoryboard}
-				/>
+				<Toolbar scene={scene} aspectRatio={sceneAspect} setAspectRatio={setAspect} savedFlash={savedFlash} onExport={exportStoryboard} />
 				<SectionA
 					value={visualStyle}
 					onChange={setVisualStyle}
@@ -656,8 +687,11 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 						projectAspect={sceneAspect}
 						visualStyle={visualStyle}
 						layout={layout}
+						onLayout={setView}
 						onUpdate={(patch) => updateShot(activeShot.id, patch)}
-						onPatchShot={(patch, clearAiKey, addAiKeys, delAiKey, delAiKeys) => patchShot(activeShot.id, patch, clearAiKey, addAiKeys, delAiKey, delAiKeys)}
+						onPatchShot={(patch, clearAiKey, addAiKeys, delAiKey, delAiKeys) =>
+							patchShot(activeShot.id, patch, clearAiKey, addAiKeys, delAiKey, delAiKeys)
+						}
 						onDelete={() =>
 							ask({
 								title: `Delete Shot ${String(activeShot.number).padStart(2, '0')}?`,
@@ -690,7 +724,9 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 						onClearField={(chip) => clearField(activeShot.id, chip)}
 						onApplyHeroFrames={() => applyHeroToFrames(activeShot.id)}
 						heroBusy={!!heroGen[activeShot.id]}
-						heroProgress={heroGen[activeShot.id] ? `Applying @hero ${heroGen[activeShot.id].done}/${heroGen[activeShot.id].total}…` : undefined}
+						heroProgress={
+							heroGen[activeShot.id] ? `Applying @hero ${heroGen[activeShot.id].done}/${heroGen[activeShot.id].total}…` : undefined
+						}
 						onGenerateVideo={() => generateShotVideo(activeShot.id)}
 						videoBusy={videoGen[activeShot.id] !== undefined}
 						videoStatus={videoLabel(activeShot.id)}
@@ -713,7 +749,9 @@ export function ShotListPage({ boardImages }: { boardImages: MoodItem[] }) {
 					onSave={saveEditedImage}
 				/>
 			)}
-			{boardPick && <BoardPicker target={boardPick.target} boardImages={boardImages} onPick={onBoardPicked} onClose={() => setBoardPick(null)} />}
+			{boardPick && (
+				<BoardPicker target={boardPick.target} boardImages={boardImages} onPick={onBoardPicked} onClose={() => setBoardPick(null)} />
+			)}
 			{recipesOpen && <RecipesModal onApply={applyRecipe} onClose={() => setRecipesOpen(false)} />}
 			<FramePickInbox open={inboxOpen} onClose={() => setInboxOpen(false)} scene={scene} onApply={applyHandoff} />
 			<ConfirmDialog request={confirmReq} onClose={() => setConfirmReq(null)} />
