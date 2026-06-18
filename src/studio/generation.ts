@@ -6,6 +6,26 @@ import { getKling, downscaleImage } from '../state/persistence';
 
 const sizeFor = (aspect: string) => (aspect === '9:16' ? '1024x1536' : aspect === '16:9' ? '1536x1024' : '1024x1024');
 
+// The worker only accepts embedded image data. Any slot value that is a URL
+// (demo asset, library tile, remote) is fetched and converted to a data URL so
+// the real Hero/Composition the user defined is actually sent to the model.
+async function toDataUrl(src?: string | null): Promise<string | null> {
+	if (!src) return null;
+	if (src.startsWith('data:')) return src;
+	try {
+		const res = await fetch(src);
+		const blob = await res.blob();
+		return await new Promise<string | null>((resolve) => {
+			const r = new FileReader();
+			r.onload = () => resolve(r.result as string);
+			r.onerror = () => resolve(null);
+			r.readAsDataURL(blob);
+		});
+	} catch {
+		return null;
+	}
+}
+
 export interface ImageGenInput {
 	prompt: string;
 	hero?: string | null;
@@ -18,13 +38,10 @@ export interface ImageGenInput {
 export async function studioGenerateImage(input: ImageGenInput): Promise<string[]> {
 	const prov = getProvider();
 	if (prov.provider !== 'openai') throw new Error('OpenAI key required');
-	// The worker only accepts embedded image data (data: URLs) as inputs — it
-	// rejects remote/app-relative demo paths. Send only real uploads; when none
-	// are attached the API falls back to text-to-image from the prompt alone.
-	const isData = (s?: string | null): s is string => !!s && s.startsWith('data:');
 	const inputImages: { src: string; name: string }[] = [];
-	if (isData(input.hero)) inputImages.push({ src: input.hero, name: 'hero-subject' });
-	if (isData(input.comp)) inputImages.push({ src: input.comp, name: 'composition-ref' });
+	const [heroData, compData] = await Promise.all([toDataUrl(input.hero), toDataUrl(input.comp)]);
+	if (heroData) inputImages.push({ src: heroData, name: 'hero-subject' });
+	if (compData) inputImages.push({ src: compData, name: 'composition-ref' });
 	const size = sizeFor(input.aspect);
 	const count = Math.max(1, Math.min(4, input.batch || 1));
 	const settled = await Promise.allSettled(
