@@ -92,19 +92,6 @@ export function ApiKeysModal({
 						sub="Paired with the Access Key; used to sign each request"
 						control={<input type="text" name="fp-kling-sk" value={keys.klingSecretKey || ''} placeholder="SK..." onChange={onField('klingSecretKey')} style={{ ...monoInputStyle, WebkitTextSecurity: 'disc' } as React.CSSProperties} {...noFill} />}
 					/>
-					<Row
-						label="Kling model"
-						sub="Image-to-video model for the Generate video action"
-						control={
-							<select value={keys.klingModel || 'kling-v3'} onChange={onField('klingModel')} style={{ ...monoInputStyle, fontFamily: 'inherit' }}>
-								<option value="kling-v3">Kling 3.0 (kling-v3)</option>
-								<option value="kling-v2-6">Kling 2.6 (kling-v2-6)</option>
-								<option value="kling-v2-5-turbo">Kling 2.5 Turbo (kling-v2-5-turbo)</option>
-								<option value="kling-v2-1-master">Kling 2.1 Master (kling-v2-1-master)</option>
-								<option value="kling-v1-6">Kling 1.6 (kling-v1-6)</option>
-							</select>
-						}
-					/>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 						<GhostBtn onClick={runKlingTest}>{klingTest.state === 'testing' ? 'Testing…' : 'Test Kling keys'}</GhostBtn>
 						{klingTest.state === 'ok' && <span style={{ color: 'var(--success)', fontSize: 12.5, fontWeight: 600 }}>✓ Keys valid</span>}
