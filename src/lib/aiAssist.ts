@@ -55,7 +55,8 @@ export interface VideoRequest {
 	accessKey: string;
 	secretKey: string;
 	model: string;
-	image: string; // data URL or remote URL — the start frame
+	image: string; // data URL or remote URL — the start (first) frame
+	imageTail?: string; // optional end (last) frame — Kling image_tail
 	prompt: string;
 	duration?: '5' | '10';
 	aspectRatio?: string;
@@ -80,6 +81,7 @@ export async function generateVideo(req: VideoRequest): Promise<string> {
 		klingSecretKey: req.secretKey,
 		model: req.model,
 		image: req.image,
+		imageTail: req.imageTail || '',
 		prompt: req.prompt,
 		duration: req.duration || '5',
 		aspectRatio: req.aspectRatio || '16:9',

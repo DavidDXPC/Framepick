@@ -225,10 +225,13 @@ export function StudioApp() {
 		const batch = settings?.batch || 1;
 		if (mode === 'motion') {
 			setGen({ shotId, mode, label: 'Animating with Kling…' });
-			const startImage = (shot.history && shot.history.length ? shot.history[shot.history.length - 1][0] : null) || shot.heroSrc || A.heroAsset;
+			// Start frame → Kling `image`; End frame → `image_tail`. Fall back to a
+			// generated still / Hero only when no Start frame is set.
+			const startImage = shot.startFrame || (shot.history && shot.history.length ? shot.history[shot.history.length - 1][0] : null) || shot.heroSrc || A.heroAsset;
+			const endImage = shot.endFrame || null;
 			const rawV = (shot.promptOverride || '').trim() || `@hero performs the reference's ${tc.motion.move.toLowerCase()} — smooth, continuous video, consistent lighting and label legibility across the full ${tc.motion.dur}s.`;
 			const prompt = rawV.includes('@hero') ? resolveHeroPrompt(rawV, { hasHeroRef: !!shot.heroSrc }) : rawV;
-			studioGenerateVideo({ prompt, startImage, aspect, duration: settings?.dur, quality: settings?.quality, model: settings?.model }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
+			studioGenerateVideo({ prompt, startImage, endImage, aspect, duration: settings?.dur, quality: settings?.quality, model: settings?.model }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
 				.then((url) => finishMotion(shotId, url))
 				.catch((e: Error) => {
 					if (demoRef.current) { finishMotion(shotId, null); return; }

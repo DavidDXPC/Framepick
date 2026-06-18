@@ -62,7 +62,8 @@ export async function studioGenerateImage(input: ImageGenInput): Promise<string[
 
 export interface VideoGenInput {
 	prompt: string;
-	startImage: string;
+	startImage: string; // Start frame → Kling `image`
+	endImage?: string | null; // End frame → Kling `image_tail`
 	aspect: string;
 	duration?: string; // seconds — Kling image-to-video supports '5' or '10'
 	quality?: string; // 'std' | 'pro'
@@ -73,12 +74,21 @@ export interface VideoGenInput {
 export async function studioGenerateVideo(input: VideoGenInput, onTick?: (s: string) => void): Promise<string> {
 	const kling = getKling();
 	if (!kling) throw new Error('Kling keys required');
-	const image = await downscaleImage(input.startImage, 1024);
+	// Convert each frame to embedded data (Kling can't fetch app-relative demo
+	// paths), then downscale to keep the request light.
+	const prep = async (src?: string | null) => {
+		if (!src) return '';
+		const d = (await toDataUrl(src)) || src;
+		return downscaleImage(d, 1024);
+	};
+	const image = await prep(input.startImage);
+	const imageTail = input.endImage ? await prep(input.endImage) : undefined;
 	const taskId = await generateVideo({
 		accessKey: kling.accessKey,
 		secretKey: kling.secretKey,
 		model: input.model || kling.model,
 		image,
+		imageTail,
 		prompt: input.prompt,
 		aspectRatio: input.aspect === 'auto' ? '16:9' : input.aspect,
 		// Kling image-to-video renders 5s or 10s — map the chosen 3–15s to nearest.

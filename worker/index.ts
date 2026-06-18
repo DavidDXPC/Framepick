@@ -317,7 +317,9 @@ async function handleGenerateVideo(body: Record<string, any>): Promise<Response>
 	const image = String(body.image || '');
 	if (!image) return json({ error: 'A start image is required to animate (generate a still or attach a Hero first).' }, 400);
 	// Kling wants raw base64 (no data: prefix) or a URL.
-	const imageField = image.startsWith('data:') ? image.slice(image.indexOf(',') + 1) : image;
+	const toField = (v: string) => (v.startsWith('data:') ? v.slice(v.indexOf(',') + 1) : v);
+	const imageField = toField(image);
+	const tail = String(body.imageTail || '');
 	const duration = body.duration === '10' || body.duration === 10 ? '10' : '5';
 	const aspect = pick(body.aspectRatio, ['16:9', '9:16', '1:1'], '16:9');
 	const payload: Record<string, unknown> = {
@@ -329,6 +331,9 @@ async function handleGenerateVideo(body: Record<string, any>): Promise<Response>
 		aspect_ratio: aspect,
 		cfg_scale: typeof body.cfgScale === 'number' ? body.cfgScale : 0.5,
 	};
+	// Start→end frame interpolation: Kling uses image (first frame) + image_tail
+	// (last frame). Only send a tail when an End frame was provided.
+	if (tail) payload.image_tail = toField(tail);
 	if (body.negativePrompt) payload.negative_prompt = String(body.negativePrompt).slice(0, 2500);
 
 	const r = await fetch(`${KLING_HOST}/v1/videos/image2video`, {
