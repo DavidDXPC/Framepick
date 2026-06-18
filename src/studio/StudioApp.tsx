@@ -11,6 +11,7 @@ import { SafariWindow } from './extension';
 import { studioGenerateImage, studioGenerateVideo } from './generation';
 import { ApiKeysModal } from '../components/ApiKeysModal';
 import { loadApiKeys } from '../state/persistence';
+import { getInbox, subscribeInbox, removeInboxItem, resolveHeroPrompt } from '../lib/framepickBridge';
 import type { ApiKeys } from '../state/types';
 import type { Demo, DemoKind, Fix, Gen, Mode, Recipe, Style, StudioShot, ToolState, Tx } from './types';
 
@@ -151,6 +152,43 @@ export function StudioApp() {
 	const demoRef = useRef(demo);
 	demoRef.current = demo;
 
+	// Consume FramePick extension handoffs (composition / motion) into the active shot.
+	useEffect(() => {
+		const apply = () => {
+			const inbox = getInbox();
+			if (!inbox.length) return;
+			const item = inbox[0];
+			const p = item.payload;
+			if (p.kind === 'composition') {
+				patchShot(activeId, (s) => ({
+					mode: 'still',
+					comps: [...s.comps, { id: nsUid(), src: p.image, kind: 'still' }],
+					compSrc: p.image,
+					workflow: true,
+					promptFinal: true,
+					promptOverride: (p.heroPrompt || p.prompt || '').trim(),
+				}));
+				toast('Composition received from FramePick — your Hero stays the subject');
+			} else {
+				const frames = p.frames.slice(0, 8).map((f, i) => ({ id: nsUid(), src: f.src, n: i + 1 }));
+				patchShot(activeId, (s) => ({
+					mode: 'motion',
+					comps: [...s.comps, ...frames.map((f) => ({ id: nsUid(), src: f.src, kind: 'still' as const }))],
+					refs: frames.map((f) => ({ id: nsUid(), src: f.src })),
+					sampledFrames: frames,
+					workflow: true,
+					promptFinal: true,
+					promptOverride: (p.heroPrompt || p.videoPrompt || '').trim(),
+				}));
+				toast('Motion frames received from FramePick — your Hero stays the subject');
+			}
+			removeInboxItem(item.id);
+		};
+		apply();
+		return subscribeInbox(apply);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeId]);
+
 	// reset the single starter shot to a clean "new still" so the demos start fresh
 	const resetDemoShot = () => setShots((l) => l.map((s) => (s.id === 's1' ? { ...s, comps: [{ id: nsUid(), mediaId: 'ref-shaker', kind: 'still' }, { id: nsUid(), mediaId: 'ref-rope', kind: 'still' }], status: 'draft', mode: 'still', startFrame: null, endFrame: null, sampledFrames: [], heroSrc: null, compSrc: null, refs: [], workflow: false, promptFinal: false, history: [], sel: null, output: { still: null, motion: null } } : s)));
 	const addMotionCompTo = (id: string) => setShots((l) => l.map((s) => (s.id === id ? { ...s, mode: 'motion', startFrame: null, endFrame: null, sampledFrames: [], comps: [{ id: nsUid(), mediaId: 'vid-orbit', kind: 'motion', frameCount: 8, dur: 6 }] } : s)));
@@ -188,7 +226,8 @@ export function StudioApp() {
 		if (mode === 'motion') {
 			setGen({ shotId, mode, label: 'Animating with Kling…' });
 			const startImage = (shot.history && shot.history.length ? shot.history[shot.history.length - 1][0] : null) || shot.heroSrc || A.heroAsset;
-			const prompt = `@hero performs the reference's ${tc.motion.move.toLowerCase()} — smooth, continuous video, consistent lighting and label legibility across the full ${tc.motion.dur}s.`;
+			const rawV = (shot.promptOverride || '').trim() || `@hero performs the reference's ${tc.motion.move.toLowerCase()} — smooth, continuous video, consistent lighting and label legibility across the full ${tc.motion.dur}s.`;
+			const prompt = rawV.includes('@hero') ? resolveHeroPrompt(rawV, { hasHeroRef: !!shot.heroSrc }) : rawV;
 			studioGenerateVideo({ prompt, startImage, aspect }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
 				.then(() => finishMotion(shotId, true))
 				.catch((e: Error) => {
@@ -198,7 +237,8 @@ export function StudioApp() {
 				});
 		} else {
 			setGen({ shotId, mode, label: 'Rendering image…' });
-			const prompt = (shot.promptOverride || '').trim() || resolvePrompt(shot, 'hero', style, tc.frame);
+			const raw = (shot.promptOverride || '').trim() || resolvePrompt(shot, 'hero', style, tc.frame);
+			const prompt = raw.includes('@hero') ? resolveHeroPrompt(raw, { hasHeroRef: !!shot.heroSrc }) : raw;
 			const hero = shot.heroSrc || A.heroAsset;
 			const comp = shot.compSrc || (shot.comps[0] ? (shot.comps[0].mediaId ? NS_MEDIA_BY_ID[shot.comps[0].mediaId].src : shot.comps[0].src || A.ref) : A.ref);
 			studioGenerateImage({ prompt, hero, comp, aspect, batch })
@@ -429,10 +469,8 @@ export function StudioApp() {
 
 	return (
 		<div className="ns-app" data-density="spacious">
-			<div className="ns-wall" />
 			<div className="ns-window">
 				<div className="ns-toolbar">
-					<span className="lights"><i className="r" /><i className="y" /><i className="g" /></span>
 					<span className="ns-brand"><span className="ns-brand-mark">{NI.still()}</span> <b>Framepick</b> <span>Studio</span></span>
 					{screen === 'workspace' ? (
 						<span className="ns-tb-crumb">{I.chev({ style: { transform: 'rotate(90deg)', opacity: 0.4 } })} <span className="chip">Predators Prey · Savage</span></span>

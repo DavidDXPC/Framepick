@@ -648,3 +648,20 @@ select.status-select.ready { background-color:rgba(48,209,88,.2); color:#1d8a3f;
   .ns-grid[data-layout="flow"] { grid-template-columns:260px minmax(0,1fr) 320px; }
   .ns-rail { width:74px; }
 }
+
+/* ===================================================================== */
+/* Studio integration overrides (not part of the verbatim prototype CSS) */
+/* ===================================================================== */
+
+/* (#3) Full-page web app — drop the macOS desktop-window chrome.
+   No outer wall/gradient, no window padding, radius, shadow or border. */
+body { background: var(--content); }
+.ns-app { padding: 0; }
+.ns-wall { display: none !important; }
+.ns-window { border-radius: 0; box-shadow: none; }
+.ns-toolbar .lights { display: none; }
+
+/* (#2) Prompt action icons (Enhance / Copy) must not overlap the prompt
+   text or the empty-state placeholder: lay them out as a right-aligned
+   row above the text instead of floating over it. */
+.ns-prompt-bar { float: none; justify-content: flex-end; margin: 0 0 6px; }
