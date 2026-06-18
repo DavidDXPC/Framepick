@@ -354,7 +354,14 @@ async function handleKlingTest(body: Record<string, any>): Promise<Response> {
 	const r = await fetch(`${KLING_HOST}/v1/videos/image2video/framepick-keytest`, { headers: { Authorization: `Bearer ${token}` } });
 	const data = (await r.json().catch(() => ({}))) as any;
 	const msg = String(data?.message || '');
-	if (/signature|invalid|unauthor|forbidden|token|expired|access key|secret/i.test(msg)) return json({ ok: false, error: msg });
+	if (/signature|invalid|unauthor|forbidden|token|expired|access key|secret/i.test(msg)) {
+		// 1004 "signature invalid" specifically means the Secret Key does not match
+		// the Access Key — point the user at creating a fresh, matched key pair.
+		const hint = /signature/i.test(msg)
+			? `${msg} — your Secret Key doesn't match this Access Key. The Secret is shown only once at creation, so create a NEW key pair at kling.ai/dev/api-key and copy BOTH keys together.`
+			: msg;
+		return json({ ok: false, error: hint });
+	}
 	// code 0, or "task not found", or any non-auth error all mean auth passed.
 	return json({ ok: true });
 }
