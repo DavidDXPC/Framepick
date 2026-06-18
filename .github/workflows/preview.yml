@@ -1,0 +1,37 @@
+name: Preview deploy (release/1.0.2)
+
+# Deploys the release/1.0.2 branch to a SEPARATE Worker named "framepick-preview"
+# so it can be reviewed on the web without touching the live "framepick" Worker.
+# Reuses the same repo secrets as the production deploy:
+#   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+on:
+  push:
+    branches: [release/1.0.2]
+  workflow_dispatch: {}
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy preview Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --name framepick-preview

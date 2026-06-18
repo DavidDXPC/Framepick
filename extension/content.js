@@ -1071,10 +1071,11 @@
       </div>
       <div class="fp-mono" data-prompt></div>
       <div class="fp-actions">
+        <button class="fp-btn primary" data-act="usecomp" style="width:100%;justify-content:center" title="Send to FramePick Studio as this shot's COMPOSITION reference — only the layout is used; your Hero stays the subject">Use as Composition →</button>
+      </div>
+      <div class="fp-actions">
         <button class="fp-btn" data-act="copy">Copy</button>
         <button class="fp-btn" data-act="regen" title="Regenerate">↻</button>
-        <span style="flex:1"></span>
-        <button class="fp-btn primary" data-act="usecomp" title="Send to FramePick Studio as this shot's COMPOSITION reference — only the layout is used; your Hero stays the subject">Use as Composition →</button>
       </div>`;
     const promptEl = b.querySelector('[data-prompt]');
     const wordsEl = b.querySelector('[data-words]');
@@ -1149,11 +1150,13 @@
       </div>
       <div class="fp-mono" data-prompt></div>
       <div class="fp-actions">
+        <button class="fp-btn primary" data-act="nframe" style="width:100%;justify-content:center" title="Send keyframes, breakdown and the @hero video prompt to FramePick Studio as Composition References — keyframes guide motion & layout only; the Hero slot stays the subject">Use as Composition Refs →</button>
+      </div>
+      <div class="fp-actions">
         <button class="fp-btn" data-act="copy">Copy prompt</button>
         <button class="fp-btn" data-act="regen" title="Regenerate">↻</button>
         <span style="flex:1"></span>
         <button class="fp-btn" data-act="still" title="Generate a FLUX.2 STILL prompt from the selected frame instead">force STILL</button>
-        <button class="fp-btn primary" data-act="nframe" title="Send keyframes, breakdown and the @hero video prompt to FramePick Studio — keyframes guide motion & layout only; the Hero slot stays the subject">Use in FramePick Studio →</button>
       </div>`;
     const heroEl = b.querySelector('.fp-hero');
     const timeEl = b.querySelector('.fp-time');
