@@ -5,6 +5,7 @@ import type { DragEvent, ReactNode } from 'react';
 import { NI, I, TI } from './icons';
 import { NImg, Popover, Spinner } from './ui';
 import { A, NS_MEDIA_BY_ID } from './assets';
+import { fileToRefImage } from '../state/persistence';
 import { resolvePrompt, ToolsBar, VisualStyleSection } from './tools';
 import type { Comp, Dispatch, Fix, Gen, Status, StudioShot, Style, ToolState, Tx } from './types';
 
@@ -20,16 +21,33 @@ function refDragProps(item: DragItem) {
 	};
 }
 
-function useDropZone(onDrop: (it: DragItem) => void) {
+// Open the OS file dialog and resolve a data URL (real desktop upload).
+function pickImageFile(): Promise<string | null> {
+	return new Promise((resolve) => {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = 'image/*';
+		input.onchange = async () => { const f = input.files?.[0]; resolve(f ? (await fileToRefImage(f)).src : null); };
+		input.click();
+	});
+}
+
+// Drop zone that accepts a dragged library/output image OR an OS file drop,
+// plus pick() to open the file dialog.
+function useUploadDrop(onSrc: (src: string) => void) {
 	const [over, setOver] = useState(false);
-	return {
-		over,
-		dropProps: {
-			onDragOver: (e: DragEvent) => { if (NS_DRAGGED) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!over) setOver(true); } },
-			onDragLeave: () => setOver(false),
-			onDrop: (e: DragEvent) => { e.preventDefault(); setOver(false); const it = NS_DRAGGED; if (it) onDrop(it); },
+	const pick = async () => { const s = await pickImageFile(); if (s) onSrc(s); };
+	const dropProps = {
+		onDragOver: (e: DragEvent) => { if (NS_DRAGGED || e.dataTransfer.types?.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!over) setOver(true); } },
+		onDragLeave: () => setOver(false),
+		onDrop: async (e: DragEvent) => {
+			e.preventDefault(); setOver(false);
+			const f = e.dataTransfer.files?.[0];
+			if (f) { onSrc((await fileToRefImage(f)).src); return; }
+			if (NS_DRAGGED) onSrc(NS_DRAGGED.src);
 		},
 	};
+	return { over, dropProps, pick };
 }
 
 /* ---------------- References ---------------- */
@@ -76,19 +94,19 @@ function RefTile({ comp, dispatch }: { comp: Comp; dispatch: Dispatch }) {
 }
 
 // hero / composition / start / end input thumbnail — fill by click or by dragging a reference
-function InputSlot({ label, value, defaultSrc, onSet, onClear }: { label: string; value?: string | null; defaultSrc: string; onSet: (v: string) => void; onClear: () => void }) {
-	const { over, dropProps } = useDropZone((it) => onSet(it.src));
+function InputSlot({ label, value, onSet, onClear }: { label: string; value?: string | null; onSet: (v: string) => void; onClear: () => void }) {
+	const { over, dropProps, pick } = useUploadDrop(onSet);
 	const src = value || null;
 	return (
 		<div className="ns-fslot">
 			{src ? (
-				<button className={'ns-fslot-img' + (over ? ' ns-drop-over' : '')} {...dropProps} title={'Replace ' + label.toLowerCase()} onClick={() => onSet(defaultSrc)}>
+				<button className={'ns-fslot-img' + (over ? ' ns-drop-over' : '')} {...dropProps} title={'Replace ' + label.toLowerCase()} onClick={pick}>
 					<NImg src={src} />
 					<span className="ns-fslot-tag">{label}</span>
 					<span className="ns-fslot-x" role="button" title={'Remove ' + label.toLowerCase()} onClick={(e) => { e.stopPropagation(); onClear(); }}>{I.x()}</span>
 				</button>
 			) : (
-				<button className={'ns-fslot-add' + (over ? ' ns-drop-over' : '')} {...dropProps} onClick={() => onSet(defaultSrc)}>
+				<button className={'ns-fslot-add' + (over ? ' ns-drop-over' : '')} {...dropProps} onClick={pick}>
 					{NI.still()}
 					<b>{label}</b>
 					<span>Upload or drag</span>
@@ -101,7 +119,7 @@ function InputSlot({ label, value, defaultSrc, onSet, onClear }: { label: string
 // References section (video mode) — multi-image slots + a plus-only Add slot.
 function ReferencesGroup({ shot, dispatch }: { shot: StudioShot; dispatch: Dispatch }) {
 	const refs = shot.refs || [];
-	const addZone = useDropZone((it) => dispatch({ type: 'addRef', src: it.src }));
+	const addZone = useUploadDrop((src) => dispatch({ type: 'addRef', src }));
 	return (
 		<div className="ns-inputs ns-refsgroup">
 			<div className="ns-refgroup-h">{NI.layers()} References</div>
@@ -116,8 +134,8 @@ function ReferencesGroup({ shot, dispatch }: { shot: StudioShot; dispatch: Dispa
 					</div>
 				))}
 				<div className="ns-fslot">
-					<button className={'ns-fslot-add' + (addZone.over ? ' ns-drop-over' : '')} {...addZone.dropProps} onClick={() => dispatch({ type: 'addComp' })} title="Drag a reference from the library or output">
-						{refs.length ? I.plus() : <>{NI.layers()}<b>References</b><span>Drag from library</span></>}
+					<button className={'ns-fslot-add' + (addZone.over ? ' ns-drop-over' : '')} {...addZone.dropProps} onClick={addZone.pick} title="Upload, or drag a reference from the library or output">
+						{refs.length ? I.plus() : <>{NI.layers()}<b>References</b><span>Upload or drag</span></>}
 					</button>
 				</div>
 			</div>
@@ -127,8 +145,9 @@ function ReferencesGroup({ shot, dispatch }: { shot: StudioShot; dispatch: Dispa
 
 // empty thumbnail slot — click to add a reference
 function EmptyRefSlot({ dispatch }: { dispatch: Dispatch }) {
+	const { over, dropProps, pick } = useUploadDrop((src) => dispatch({ type: 'addComp', src }));
 	return (
-		<button className="ns-comp-empty" onClick={() => dispatch({ type: 'addComp' })} title="Add a reference">{I.plus()}</button>
+		<button className={'ns-comp-empty' + (over ? ' ns-drop-over' : '')} {...dropProps} onClick={pick} title="Upload or drop a reference image">{I.plus()}</button>
 	);
 }
 
@@ -188,7 +207,8 @@ function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { 
 	const previewBase = styleLine;
 	const previewHint = workflowOn ? HERO_HINT : '';
 	const previewText = (previewBase + (previewHint ? ' ' + previewHint : '')).replace(/\s+/g, ' ').trim();
-	const finalText = resolvePrompt(shot, view, style, frame);
+	const override = (shot.promptOverride || '').trim();
+	const finalText = override || resolvePrompt(shot, view, style, frame);
 	const promptText = finalized ? finalText : previewText;
 	const copyPrompt = () => {
 		if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(promptText).then(() => toast('Prompt copied to clipboard'), () => toast('Prompt copied'));
@@ -210,13 +230,13 @@ function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { 
 						<div className="ns-fslot-row">
 							{motion ? (
 								<>
-									<InputSlot label="Start frame" value={shot.startFrame} defaultSrc={A.srcFrames[0]} onSet={(v) => dispatch({ type: 'setFrameRef', role: 'start', value: v })} onClear={() => dispatch({ type: 'setFrameRef', role: 'start', value: null })} />
-									<InputSlot label="End frame" value={shot.endFrame} defaultSrc={A.srcFrames[A.srcFrames.length - 1]} onSet={(v) => dispatch({ type: 'setFrameRef', role: 'end', value: v })} onClear={() => dispatch({ type: 'setFrameRef', role: 'end', value: null })} />
+									<InputSlot label="Start frame" value={shot.startFrame} onSet={(v) => dispatch({ type: 'setFrameRef', role: 'start', value: v })} onClear={() => dispatch({ type: 'setFrameRef', role: 'start', value: null })} />
+									<InputSlot label="End frame" value={shot.endFrame} onSet={(v) => dispatch({ type: 'setFrameRef', role: 'end', value: v })} onClear={() => dispatch({ type: 'setFrameRef', role: 'end', value: null })} />
 								</>
 							) : (
 								<>
-									<InputSlot label="Hero" value={shot.heroSrc} defaultSrc={A.heroAsset} onSet={(v) => dispatch({ type: 'setInput', field: 'heroSrc', value: v })} onClear={() => dispatch({ type: 'setInput', field: 'heroSrc', value: null })} />
-									<InputSlot label="Composition" value={shot.compSrc} defaultSrc={shot.comps[0] ? NS_MEDIA_BY_ID[shot.comps[0].mediaId || ''].src : A.ref} onSet={(v) => dispatch({ type: 'setInput', field: 'compSrc', value: v })} onClear={() => dispatch({ type: 'setInput', field: 'compSrc', value: null })} />
+									<InputSlot label="Hero" value={shot.heroSrc} onSet={(v) => dispatch({ type: 'setInput', field: 'heroSrc', value: v })} onClear={() => dispatch({ type: 'setInput', field: 'heroSrc', value: null })} />
+									<InputSlot label="Composition" value={shot.compSrc} onSet={(v) => dispatch({ type: 'setInput', field: 'compSrc', value: v })} onClear={() => dispatch({ type: 'setInput', field: 'compSrc', value: null })} />
 								</>
 							)}
 						</div>
@@ -285,11 +305,11 @@ function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { 
 							<textarea className={'ns-assembled-ta' + (!finalized && assembledEdit == null ? ' preview' : '')} spellCheck={false} placeholder="Add a Hero and Composition, then pick a Workflow — the assembled prompt builds here." value={assembledEdit ?? promptText} onChange={(e) => setAssembledEdit(e.target.value)} />
 						</div>
 						<div className="ns-modal-foot">
-							<span className="ns-modal-note">The complete prompt sent to the model — edit freely.</span>
+							<span className="ns-modal-note">The complete prompt sent to the model — edit freely, then Save.</span>
 							<span className="flex" />
-							{assembledEdit != null && <button className="btn" onClick={() => { setAssembledEdit(null); toast('Reset to assembled prompt'); }}>{I.refresh()} Reset</button>}
+							{assembledEdit != null && <button className="btn" onClick={() => { setAssembledEdit(null); dispatch({ type: 'setPromptOverride', text: '' }); toast('Reset to assembled prompt'); }}>{I.refresh()} Reset</button>}
 							<button className="btn" onClick={() => { const t = assembledEdit ?? promptText; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t); toast('Prompt copied'); }}>{I.copy()} Copy</button>
-							<button className="btn filled" onClick={() => setAssembledOpen(false)}>Done</button>
+							<button className="btn filled" onClick={() => { if (assembledEdit != null) dispatch({ type: 'setPromptOverride', text: assembledEdit }); setAssembledOpen(false); }}>Save</button>
 						</div>
 					</div>
 				</div>

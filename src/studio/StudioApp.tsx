@@ -148,6 +148,8 @@ export function StudioApp() {
 	// fresh-state ref for async generation (avoids stale closures in timed guides)
 	const stateRef = useRef({ shots, toolState, projectStyle, recipes });
 	stateRef.current = { shots, toolState, projectStyle, recipes };
+	const demoRef = useRef(demo);
+	demoRef.current = demo;
 
 	// reset the single starter shot to a clean "new still" so the demos start fresh
 	const resetDemoShot = () => setShots((l) => l.map((s) => (s.id === 's1' ? { ...s, comps: [{ id: nsUid(), mediaId: 'ref-shaker', kind: 'still' }, { id: nsUid(), mediaId: 'ref-rope', kind: 'still' }], status: 'draft', mode: 'still', startFrame: null, endFrame: null, sampledFrames: [], heroSrc: null, compSrc: null, refs: [], workflow: false, promptFinal: false, history: [], sel: null, output: { still: null, motion: null } } : s)));
@@ -189,15 +191,23 @@ export function StudioApp() {
 			const prompt = `@hero performs the reference's ${tc.motion.move.toLowerCase()} — smooth, continuous video, consistent lighting and label legibility across the full ${tc.motion.dur}s.`;
 			studioGenerateVideo({ prompt, startImage, aspect }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
 				.then(() => finishMotion(shotId, true))
-				.catch(() => finishMotion(shotId, false));
+				.catch((e: Error) => {
+					if (demoRef.current) { finishMotion(shotId, false); return; }
+					setGen(null); patchShot(shotId, { status: 'draft' });
+					toast(/Kling/i.test(e?.message || '') ? 'Add your Kling keys (🔑 top-right) to generate video.' : 'Video generation failed — ' + (e?.message || 'check your Kling keys.'));
+				});
 		} else {
 			setGen({ shotId, mode, label: 'Rendering image…' });
-			const prompt = resolvePrompt(shot, 'hero', style, tc.frame);
+			const prompt = (shot.promptOverride || '').trim() || resolvePrompt(shot, 'hero', style, tc.frame);
 			const hero = shot.heroSrc || A.heroAsset;
 			const comp = shot.compSrc || (shot.comps[0] ? (shot.comps[0].mediaId ? NS_MEDIA_BY_ID[shot.comps[0].mediaId].src : shot.comps[0].src || A.ref) : A.ref);
 			studioGenerateImage({ prompt, hero, comp, aspect, batch })
 				.then((srcs) => finishImage(shotId, srcs))
-				.catch(() => finishImage(shotId, demoStills(shotId, batch)));
+				.catch((e: Error) => {
+					if (demoRef.current) { finishImage(shotId, demoStills(shotId, batch)); return; }
+					setGen(null); patchShot(shotId, { status: 'draft' });
+					toast(/OpenAI/i.test(e?.message || '') ? 'Add your OpenAI API key (🔑 top-right) to generate images.' : 'Image generation failed — ' + (e?.message || 'check your API key.'));
+				});
 		}
 	};
 
@@ -315,7 +325,7 @@ export function StudioApp() {
 				return { comps: [...s.comps, { id: nsUid(), src: a.src as string, kind: 'still' }] };
 			});
 			case 'promptAppend': return patchShot(activeId, (s) => ({ promptExtra: mergeClause(s.promptExtra, a.text as string) }));
-			case 'addComp': return addCompTo(activeId);
+			case 'addComp': return a.src ? patchShot(activeId, (s) => ({ comps: [...s.comps, { id: nsUid(), src: a.src as string, kind: 'still' }] })) : addCompTo(activeId);
 			case 'setInput': return patchShot(activeId, { [a.field as string]: a.value, promptFinal: false } as Partial<StudioShot>);
 			case 'addRef': return patchShot(activeId, (s) => ({ refs: [...(s.refs || []), { id: nsUid(), src: a.src as string }] }));
 			case 'removeRef': return patchShot(activeId, (s) => ({ refs: (s.refs || []).filter((r) => r.id !== a.id) }));
@@ -328,6 +338,7 @@ export function StudioApp() {
 			case 'removeComp': return patchShot(activeId, (s) => ({ comps: s.comps.filter((c) => c.id !== a.id) }));
 			case 'generate': patchShot(activeId, { promptFinal: true }); return generate(activeId, activeShot.mode, a.settings as { res?: string; aspect?: string; batch?: number });
 			case 'finalizePrompt': return patchShot(activeId, { promptFinal: true });
+			case 'setPromptOverride': return patchShot(activeId, { promptOverride: a.text as string });
 			default: return;
 		}
 	};

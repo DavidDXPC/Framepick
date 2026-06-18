@@ -18,9 +18,14 @@ export interface ImageGenInput {
 export async function studioGenerateImage(input: ImageGenInput): Promise<string[]> {
 	const prov = getProvider();
 	if (prov.provider !== 'openai') throw new Error('OpenAI key required');
+	// The API must be able to fetch every input image: data: URLs pass through,
+	// app-relative demo paths (/studio/q/...) are made absolute against the origin.
+	const abs = (s?: string | null) => (!s ? '' : s.startsWith('/') ? (typeof location !== 'undefined' ? location.origin : '') + s : s);
 	const inputImages: { src: string; name: string }[] = [];
-	if (input.hero) inputImages.push({ src: input.hero, name: 'hero-subject' });
-	if (input.comp) inputImages.push({ src: input.comp, name: 'composition-ref' });
+	const hero = abs(input.hero);
+	const comp = abs(input.comp);
+	if (hero) inputImages.push({ src: hero, name: 'hero-subject' });
+	if (comp) inputImages.push({ src: comp, name: 'composition-ref' });
 	const size = sizeFor(input.aspect);
 	const count = Math.max(1, Math.min(4, input.batch || 1));
 	const settled = await Promise.allSettled(

@@ -56,6 +56,7 @@ export interface StudioShot {
 	workflow?: boolean;
 	promptFinal?: boolean;
 	promptExtra?: string;
+	promptOverride?: string;
 	history?: string[][];
 	sel?: { r: number; c: number } | null;
 	variant?: number;
