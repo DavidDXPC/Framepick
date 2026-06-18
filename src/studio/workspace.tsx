@@ -365,7 +365,6 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 	const busy = !!gen && gen.shotId === shot.id && gen.mode === mode;
 	const fixing = !!fix && fix.shotId === shot.id;
 	const motion = mode === 'motion';
-	const frames = shot.motionFrames || A.outFrames;
 	const hist = shot.history && shot.history.length ? shot.history : ready && !motion ? [A.stills.slice(0, 4)] : [];
 	const sel = shot.sel || { r: hist.length - 1, c: 0 };
 	const selSrc = hist[sel.r] ? hist[sel.r][sel.c] : A.stills[0];
@@ -413,16 +412,6 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 				)}
 			</div>
 
-			{motion && (ready || busy) && !shot.videoUrl && (
-				<div className="ns-frames">
-					{frames.map((src, i) => (
-						<div key={i} className={'ns-frame' + (i === 2 ? ' on' : '')}>
-							<div className="ns-frame-img"><img src={src} alt="" draggable={false} /></div>
-							<span className="ns-frame-t">{((i / (frames.length - 1)) * tools.motion.dur).toFixed(1)}s</span>
-						</div>
-					))}
-				</div>
-			)}
 			{!motion && hist.length > 0 && (
 				<div className="ns-history">
 					{hist.map((row, r) => (
