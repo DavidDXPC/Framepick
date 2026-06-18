@@ -214,7 +214,7 @@ export function StudioApp() {
 		patchShot(shotId, (s) => ({ status: 'ready', output: { ...s.output, motion: 'ready' } }));
 		toast(ok ? 'Video generated — @hero animated' : 'Video generated — @hero animated (preview)');
 	};
-	const generate = (shotId: string, mode: Mode, settings?: { res?: string; aspect?: string; batch?: number }) => {
+	const generate = (shotId: string, mode: Mode, settings?: { res?: string; aspect?: string; batch?: number; dur?: string; quality?: string }) => {
 		const st = stateRef.current;
 		const shot = st.shots.find((s) => s.id === shotId);
 		if (!shot) return;
@@ -228,7 +228,7 @@ export function StudioApp() {
 			const startImage = (shot.history && shot.history.length ? shot.history[shot.history.length - 1][0] : null) || shot.heroSrc || A.heroAsset;
 			const rawV = (shot.promptOverride || '').trim() || `@hero performs the reference's ${tc.motion.move.toLowerCase()} — smooth, continuous video, consistent lighting and label legibility across the full ${tc.motion.dur}s.`;
 			const prompt = rawV.includes('@hero') ? resolveHeroPrompt(rawV, { hasHeroRef: !!shot.heroSrc }) : rawV;
-			studioGenerateVideo({ prompt, startImage, aspect }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
+			studioGenerateVideo({ prompt, startImage, aspect, duration: settings?.dur, quality: settings?.quality }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
 				.then(() => finishMotion(shotId, true))
 				.catch((e: Error) => {
 					if (demoRef.current) { finishMotion(shotId, false); return; }

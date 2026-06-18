@@ -64,6 +64,8 @@ export interface VideoGenInput {
 	prompt: string;
 	startImage: string;
 	aspect: string;
+	duration?: string; // seconds — Kling image-to-video supports '5' or '10'
+	quality?: string; // 'std' | 'pro'
 }
 
 // Returns the finished video URL. Throws when Kling keys are missing.
@@ -78,6 +80,8 @@ export async function studioGenerateVideo(input: VideoGenInput, onTick?: (s: str
 		image,
 		prompt: input.prompt,
 		aspectRatio: input.aspect === 'auto' ? '16:9' : input.aspect,
+		duration: input.duration === '10' ? '10' : '5',
+		mode: input.quality === 'pro' ? 'pro' : 'std',
 	});
 	return pollVideo(kling, taskId, onTick);
 }

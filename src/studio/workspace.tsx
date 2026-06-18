@@ -361,7 +361,8 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 	const [genRes, setGenRes] = useState('2K');
 	const [genAspect, setGenAspect] = useState('1:1');
 	const [genBatch, setGenBatch] = useState(1);
-	const [vidRes, setVidRes] = useState('2K');
+	const [vidQuality, setVidQuality] = useState('std');
+	const [vidDur, setVidDur] = useState('5');
 	const [vidAspect, setVidAspect] = useState('1:1');
 	const [vidBatch, setVidBatch] = useState(1);
 	const [lightbox, setLightbox] = useState<string | null>(null);
@@ -426,8 +427,11 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 				{motion && (
 					<div className="ns-genset">
 						<div className="ns-genset-grp"><span>Model</span><b className="ns-genset-model">{NI.sparkles()} Kling 3.0</b></div>
-						<div className="ns-genset-grp"><span>Resolution</span>
-							<div className="seg sm">{['1K', '2K', '4K'].map((r) => <button key={r} className={vidRes === r ? 'on' : ''} onClick={() => setVidRes(r)}>{r}</button>)}</div>
+						<div className="ns-genset-grp"><span>Quality</span>
+							<div className="seg sm">{[['std', 'Standard'], ['pro', 'Pro']].map(([v, l]) => <button key={v} className={vidQuality === v ? 'on' : ''} onClick={() => setVidQuality(v)}>{l}</button>)}</div>
+						</div>
+						<div className="ns-genset-grp"><span>Duration</span>
+							<div className="seg sm">{['5', '10'].map((d) => <button key={d} className={vidDur === d ? 'on' : ''} onClick={() => setVidDur(d)}>{d}s</button>)}</div>
 						</div>
 						<div className="ns-genset-grp"><span>Aspect ratio</span>
 							<div className="seg sm">{['1:1', '9:16', '16:9'].map((a) => <button key={a} className={vidAspect === a ? 'on' : ''} onClick={() => setVidAspect(a)}>{a}</button>)}</div>
@@ -435,7 +439,7 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 						<div className="ns-genset-grp"><span>Batch size</span>
 							<div className="seg sm">{[1, 2, 3, 4].map((b) => <button key={b} className={vidBatch === b ? 'on' : ''} onClick={() => setVidBatch(b)}>{b}</button>)}</div>
 						</div>
-						<button className="btn filled ns-genset-go" disabled={busy} onClick={() => dispatch({ type: 'generate', settings: { res: vidRes, aspect: vidAspect, batch: vidBatch } })}>
+						<button className="btn filled ns-genset-go" disabled={busy} onClick={() => dispatch({ type: 'generate', settings: { aspect: vidAspect, batch: vidBatch, dur: vidDur, quality: vidQuality } })}>
 							{busy ? <><Spinner className="lt" /> {gen.label}</> : ready ? <>{I.refresh()} Regenerate Video</> : <>{NI.sparkles()} Generate Video</>}
 						</button>
 					</div>
