@@ -227,24 +227,32 @@ function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { 
 			</div>
 			<div className="ns-panel-body">
 				<div className="ns-kf-row ns-inputs-row">
-					<div className="ns-inputs">
-						<div className="ns-refgroup-h">{NI.hero()} Inputs</div>
-						<div className="ns-fslot-row">
-							{motion ? (
-								<>
+					{motion ? (
+						<div className="ns-inputs">
+							<div className="ns-refgroup-h">{NI.motion()} Video input<span className="flex" />
+								<div className="seg sm ns-vmode">
+									<button className={shot.videoMode === 'refs' ? '' : 'on'} onClick={() => dispatch({ type: 'setVideoMode', value: 'frames' })} title="Animate from a Start frame to an End frame">Start → End</button>
+									<button className={shot.videoMode === 'refs' ? 'on' : ''} onClick={() => dispatch({ type: 'setVideoMode', value: 'refs' })} title="Drive the clip from up to 4 reference images (Kling Elements)">References</button>
+								</div>
+							</div>
+							{shot.videoMode === 'refs' ? (
+								<ReferencesGroup shot={shot} dispatch={dispatch} />
+							) : (
+								<div className="ns-fslot-row">
 									<InputSlot label="Start frame" value={shot.startFrame} onSet={(v) => dispatch({ type: 'setFrameRef', role: 'start', value: v })} onClear={() => dispatch({ type: 'setFrameRef', role: 'start', value: null })} />
 									<InputSlot label="End frame" value={shot.endFrame} onSet={(v) => dispatch({ type: 'setFrameRef', role: 'end', value: v })} onClear={() => dispatch({ type: 'setFrameRef', role: 'end', value: null })} />
-								</>
-							) : (
-								<>
-									<InputSlot label="Hero" value={shot.heroSrc} onSet={(v) => dispatch({ type: 'setInput', field: 'heroSrc', value: v })} onClear={() => dispatch({ type: 'setInput', field: 'heroSrc', value: null })} />
-									<InputSlot label="Composition" value={shot.compSrc} onSet={(v) => dispatch({ type: 'setInput', field: 'compSrc', value: v })} onClear={() => dispatch({ type: 'setInput', field: 'compSrc', value: null })} />
-								</>
+								</div>
 							)}
 						</div>
-					</div>
-					{motion && <div className="ns-inputs-div" />}
-					{motion && <ReferencesGroup shot={shot} dispatch={dispatch} />}
+					) : (
+						<div className="ns-inputs">
+							<div className="ns-refgroup-h">{NI.hero()} Inputs</div>
+							<div className="ns-fslot-row">
+								<InputSlot label="Hero" value={shot.heroSrc} onSet={(v) => dispatch({ type: 'setInput', field: 'heroSrc', value: v })} onClear={() => dispatch({ type: 'setInput', field: 'heroSrc', value: null })} />
+								<InputSlot label="Composition" value={shot.compSrc} onSet={(v) => dispatch({ type: 'setInput', field: 'compSrc', value: v })} onClear={() => dispatch({ type: 'setInput', field: 'compSrc', value: null })} />
+							</div>
+						</div>
+					)}
 				</div>
 				{!motion && (
 					<div className="ns-refine">

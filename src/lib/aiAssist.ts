@@ -57,6 +57,7 @@ export interface VideoRequest {
 	model: string;
 	image: string; // data URL or remote URL — the start (first) frame
 	imageTail?: string; // optional end (last) frame — Kling image_tail
+	references?: string[]; // up to 4 reference images — Kling image_list (Elements)
 	prompt: string;
 	duration?: '5' | '10';
 	aspectRatio?: string;
@@ -82,6 +83,7 @@ export async function generateVideo(req: VideoRequest): Promise<string> {
 		model: req.model,
 		image: req.image,
 		imageTail: req.imageTail || '',
+		references: req.references || [],
 		prompt: req.prompt,
 		duration: req.duration || '5',
 		aspectRatio: req.aspectRatio || '16:9',

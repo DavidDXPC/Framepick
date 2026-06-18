@@ -314,36 +314,45 @@ async function handleGenerateVideo(body: Record<string, any>): Promise<Response>
 	} catch {
 		return json({ error: 'Add your Kling Access Key and Secret Key in API keys to generate video.' }, 400);
 	}
-	const image = String(body.image || '');
-	if (!image) return json({ error: 'A start image is required to animate (generate a still or attach a Hero first).' }, 400);
 	// Kling wants raw base64 (no data: prefix) or a URL.
 	const toField = (v: string) => (v.startsWith('data:') ? v.slice(v.indexOf(',') + 1) : v);
-	const imageField = toField(image);
-	const tail = String(body.imageTail || '');
+	const refs: string[] = (Array.isArray(body.references) ? body.references : []).map((v: unknown) => String(v || '')).filter(Boolean);
+	const useRefs = refs.length > 0;
+	const image = String(body.image || '');
+	if (!useRefs && !image) return json({ error: 'A start image is required to animate (generate a still or attach a Hero first).' }, 400);
 	const duration = body.duration === '10' || body.duration === 10 ? '10' : '5';
 	const aspect = pick(body.aspectRatio, ['16:9', '9:16', '1:1'], '16:9');
 	const payload: Record<string, unknown> = {
 		model_name: String(body.model || 'kling-v3'),
-		image: imageField,
 		prompt: String(body.prompt || '').slice(0, 2500),
 		mode: body.mode === 'pro' ? 'pro' : 'std',
 		duration,
 		aspect_ratio: aspect,
 		cfg_scale: typeof body.cfgScale === 'number' ? body.cfgScale : 0.5,
 	};
-	// Start→end frame interpolation: Kling uses image (first frame) + image_tail
-	// (last frame). Only send a tail when an End frame was provided.
-	if (tail) payload.image_tail = toField(tail);
 	if (body.negativePrompt) payload.negative_prompt = String(body.negativePrompt).slice(0, 2500);
 
-	const r = await fetch(`${KLING_HOST}/v1/videos/image2video`, {
+	// Kling: EITHER reference images (Elements → multi-image2video, image_list)
+	// OR start/end frames (image2video → image + image_tail). Not both.
+	let endpoint = '/v1/videos/image2video';
+	if (useRefs) {
+		endpoint = '/v1/videos/multi-image2video';
+		payload.image_list = refs.slice(0, 4).map((v) => ({ image: toField(v) }));
+	} else {
+		payload.image = toField(image);
+		const tail = String(body.imageTail || '');
+		if (tail) payload.image_tail = toField(tail);
+	}
+
+	const r = await fetch(`${KLING_HOST}${endpoint}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
 		body: JSON.stringify(payload),
 	});
 	const data = (await r.json().catch(() => ({}))) as any;
 	if (!r.ok || data?.code !== 0) return klingError(data, r.status);
-	return json({ taskId: data?.data?.task_id });
+	// task kind is needed to poll the right status endpoint later
+	return json({ taskId: data?.data?.task_id, kind: useRefs ? 'multi' : 'single' });
 }
 
 // Validate Kling credentials via the exact signing path used for generation:
@@ -405,10 +414,18 @@ async function handleVideoStatus(body: Record<string, any>): Promise<Response> {
 	}
 	const taskId = String(body.taskId || '').trim();
 	if (!taskId) return json({ error: 'Missing task id.' }, 400);
-	const r = await fetch(`${KLING_HOST}/v1/videos/image2video/${encodeURIComponent(taskId)}`, {
-		headers: { Authorization: `Bearer ${token}` },
-	});
-	const data = (await r.json().catch(() => ({}))) as any;
+	// A task id doesn't reveal whether it was a single- or multi-image job, so
+	// query the standard endpoint first and fall back to the Elements one.
+	const query = async (path: string) => {
+		const r = await fetch(`${KLING_HOST}/v1/videos/${path}/${encodeURIComponent(taskId)}`, { headers: { Authorization: `Bearer ${token}` } });
+		const data = (await r.json().catch(() => ({}))) as any;
+		return { r, data };
+	};
+	let { r, data } = await query('image2video');
+	if (!r.ok || data?.code !== 0) {
+		const alt = await query('multi-image2video');
+		if (alt.r.ok && alt.data?.code === 0) ({ r, data } = alt);
+	}
 	if (!r.ok || data?.code !== 0) return klingError(data, r.status);
 	const status = data?.data?.task_status as string; // submitted | processing | succeed | failed
 	const videoUrl = data?.data?.task_result?.videos?.[0]?.url || '';

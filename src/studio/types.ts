@@ -58,6 +58,7 @@ export interface StudioShot {
 	promptExtra?: string;
 	promptOverride?: string;
 	videoUrl?: string;
+	videoMode?: 'frames' | 'refs'; // Kling: Start→End frames OR References (elements)
 	history?: string[][];
 	sel?: { r: number; c: number } | null;
 	variant?: number;

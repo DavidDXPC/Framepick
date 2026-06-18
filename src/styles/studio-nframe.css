@@ -680,3 +680,7 @@ body { background: var(--content); }
 .ns-credits { flex-basis: 100%; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
 .ns-credits b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ns-credits .low b { color: var(--red); }
+
+/* Video input mode toggle (Start→End / References) sits in an eyebrow header */
+.ns-refgroup-h .seg.ns-vmode { text-transform: none; letter-spacing: 0; margin-left: auto; }
+.ns-refgroup-h .seg.ns-vmode button { text-transform: none; letter-spacing: 0; }

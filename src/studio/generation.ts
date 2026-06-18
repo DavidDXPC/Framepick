@@ -64,6 +64,7 @@ export interface VideoGenInput {
 	prompt: string;
 	startImage: string; // Start frame → Kling `image`
 	endImage?: string | null; // End frame → Kling `image_tail`
+	references?: string[]; // Reference images → Kling `image_list` (Elements mode)
 	aspect: string;
 	duration?: string; // seconds — Kling image-to-video supports '5' or '10'
 	quality?: string; // 'std' | 'pro'
@@ -81,14 +82,18 @@ export async function studioGenerateVideo(input: VideoGenInput, onTick?: (s: str
 		const d = (await toDataUrl(src)) || src;
 		return downscaleImage(d, 1024);
 	};
-	const image = await prep(input.startImage);
-	const imageTail = input.endImage ? await prep(input.endImage) : undefined;
+	const refs = (input.references || []).slice(0, 4);
+	const useRefs = refs.length > 0;
+	const image = useRefs ? '' : await prep(input.startImage);
+	const imageTail = !useRefs && input.endImage ? await prep(input.endImage) : undefined;
+	const references = useRefs ? (await Promise.all(refs.map(prep))).filter(Boolean) : undefined;
 	const taskId = await generateVideo({
 		accessKey: kling.accessKey,
 		secretKey: kling.secretKey,
 		model: input.model || kling.model,
 		image,
 		imageTail,
+		references,
 		prompt: input.prompt,
 		aspectRatio: input.aspect === 'auto' ? '16:9' : input.aspect,
 		// Kling image-to-video renders 5s or 10s — map the chosen 3–15s to nearest.

@@ -225,13 +225,15 @@ export function StudioApp() {
 		const batch = settings?.batch || 1;
 		if (mode === 'motion') {
 			setGen({ shotId, mode, label: 'Animating with Kling…' });
-			// Start frame → Kling `image`; End frame → `image_tail`. Fall back to a
-			// generated still / Hero only when no Start frame is set.
-			const startImage = shot.startFrame || (shot.history && shot.history.length ? shot.history[shot.history.length - 1][0] : null) || shot.heroSrc || A.heroAsset;
-			const endImage = shot.endFrame || null;
+			// Kling allows EITHER start→end frames OR reference images (Elements),
+			// not both. Send only the inputs for the chosen mode.
+			const useRefs = shot.videoMode === 'refs';
+			const references = useRefs ? (shot.refs || []).map((r) => r.src).filter(Boolean) : undefined;
+			const startImage = useRefs ? '' : shot.startFrame || (shot.history && shot.history.length ? shot.history[shot.history.length - 1][0] : null) || shot.heroSrc || A.heroAsset;
+			const endImage = useRefs ? null : shot.endFrame || null;
 			const rawV = (shot.promptOverride || '').trim() || `@hero performs the reference's ${tc.motion.move.toLowerCase()} — smooth, continuous video, consistent lighting and label legibility across the full ${tc.motion.dur}s.`;
 			const prompt = rawV.includes('@hero') ? resolveHeroPrompt(rawV, { hasHeroRef: !!shot.heroSrc }) : rawV;
-			studioGenerateVideo({ prompt, startImage, endImage, aspect, duration: settings?.dur, quality: settings?.quality, model: settings?.model }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
+			studioGenerateVideo({ prompt, startImage, endImage, references, aspect, duration: settings?.dur, quality: settings?.quality, model: settings?.model }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
 				.then((url) => finishMotion(shotId, url))
 				.catch((e: Error) => {
 					if (demoRef.current) { finishMotion(shotId, null); return; }
@@ -382,6 +384,7 @@ export function StudioApp() {
 			case 'generate': patchShot(activeId, { promptFinal: true }); return generate(activeId, activeShot.mode, a.settings as { res?: string; aspect?: string; batch?: number });
 			case 'finalizePrompt': return patchShot(activeId, { promptFinal: true });
 			case 'setPromptOverride': return patchShot(activeId, { promptOverride: a.text as string });
+			case 'setVideoMode': return patchShot(activeId, { videoMode: a.value as 'frames' | 'refs' });
 			default: return;
 		}
 	};
