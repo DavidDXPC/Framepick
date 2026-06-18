@@ -8,6 +8,7 @@ import { A, NS_MEDIA_BY_ID } from './assets';
 import { fileToRefImage } from '../state/persistence';
 import { resolvePrompt, ToolsBar, VisualStyleSection } from './tools';
 import { KLING_MODELS } from '../lib/videoSettings';
+import { loadCredits, saveCredits, videoCost, formatCredits } from './credits';
 import type { Comp, Dispatch, Fix, Gen, Status, StudioShot, Style, ToolState, Tx } from './types';
 
 /* ---------------- drag & drop: References → slots ---------------- */
@@ -375,10 +376,18 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 	const [genBatch, setGenBatch] = useState(1);
 	const [vidModel, setVidModel] = useState('kling-v3');
 	const [vidQuality, setVidQuality] = useState('std');
-	const [vidDur, setVidDur] = useState('5');
+	const [vidDur, setVidDur] = useState(5);
+	const [credits, setCredits] = useState(loadCredits());
 	const [vidAspect, setVidAspect] = useState('1:1');
 	const [vidBatch, setVidBatch] = useState(1);
 	const [lightbox, setLightbox] = useState<string | null>(null);
+	const vidCost = videoCost({ model: vidModel, quality: vidQuality, duration: vidDur, aspect: vidAspect, batch: vidBatch });
+	const enoughCredits = credits >= vidCost;
+	const runVideo = () => {
+		if (busy || !enoughCredits) return;
+		setCredits((c) => { const n = c - vidCost; saveCredits(n); return n; });
+		dispatch({ type: 'generate', settings: { aspect: vidAspect, batch: vidBatch, dur: String(vidDur), quality: vidQuality, model: vidModel } });
+	};
 
 	return (
 		<section className={'ns-panel ns-area-out' + (spot === 'out' ? ' ns-spot' : '')}>
@@ -448,7 +457,11 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 							<div className="seg sm">{[['std', 'Standard'], ['pro', 'Pro']].map(([v, l]) => <button key={v} className={vidQuality === v ? 'on' : ''} onClick={() => setVidQuality(v)}>{l}</button>)}</div>
 						</div>
 						<div className="ns-genset-grp"><span>Duration</span>
-							<div className="seg sm">{['5', '10'].map((d) => <button key={d} className={vidDur === d ? 'on' : ''} onClick={() => setVidDur(d)}>{d}s</button>)}</div>
+							<div className="ns-step">
+								<button className="ns-step-btn" title="Shorter" disabled={vidDur <= 3} onClick={() => setVidDur((d) => Math.max(3, d - 1))}>−</button>
+								<b className="ns-step-val">{vidDur}s</b>
+								<button className="ns-step-btn" title="Longer" disabled={vidDur >= 15} onClick={() => setVidDur((d) => Math.min(15, d + 1))}>+</button>
+							</div>
 						</div>
 						<div className="ns-genset-grp"><span>Aspect ratio</span>
 							<div className="seg sm">{['1:1', '9:16', '16:9'].map((a) => <button key={a} className={vidAspect === a ? 'on' : ''} onClick={() => setVidAspect(a)}>{a}</button>)}</div>
@@ -456,8 +469,13 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 						<div className="ns-genset-grp"><span>Batch size</span>
 							<div className="seg sm">{[1, 2, 3, 4].map((b) => <button key={b} className={vidBatch === b ? 'on' : ''} onClick={() => setVidBatch(b)}>{b}</button>)}</div>
 						</div>
-						<button className="btn filled ns-genset-go" disabled={busy} onClick={() => dispatch({ type: 'generate', settings: { aspect: vidAspect, batch: vidBatch, dur: vidDur, quality: vidQuality, model: vidModel } })}>
-							{busy ? <><Spinner className="lt" /> {gen.label}</> : ready ? <>{I.refresh()} Regenerate Video</> : <>{NI.sparkles()} Generate Video</>}
+						<div className="ns-credits">
+							<span>Cost <b>~{vidCost}</b> credits</span>
+							<span className="flex" />
+							<span className={enoughCredits ? '' : 'low'}>Available <b>{formatCredits(credits)}</b> credits</span>
+						</div>
+						<button className="btn filled ns-genset-go" disabled={busy || !enoughCredits} onClick={runVideo}>
+							{busy ? <><Spinner className="lt" /> {gen.label}</> : !enoughCredits ? <>Not enough credits</> : ready ? <>{I.refresh()} Regenerate Video</> : <>{NI.sparkles()} Generate Video</>}
 						</button>
 					</div>
 				)}

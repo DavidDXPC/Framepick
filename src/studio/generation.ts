@@ -81,7 +81,8 @@ export async function studioGenerateVideo(input: VideoGenInput, onTick?: (s: str
 		image,
 		prompt: input.prompt,
 		aspectRatio: input.aspect === 'auto' ? '16:9' : input.aspect,
-		duration: input.duration === '10' ? '10' : '5',
+		// Kling image-to-video renders 5s or 10s — map the chosen 3–15s to nearest.
+		duration: (Number(input.duration) || 5) >= 8 ? '10' : '5',
 		mode: input.quality === 'pro' ? 'pro' : 'std',
 	});
 	return pollVideo(kling, taskId, onTick);
