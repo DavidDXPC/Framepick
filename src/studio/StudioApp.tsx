@@ -209,10 +209,10 @@ export function StudioApp() {
 		patchShot(shotId, (s) => { const history = [...(s.history || []), srcs]; return { status: 'ready', output: { ...s.output, still: 'ready' }, history, sel: { r: history.length - 1, c: 0 } }; });
 		toast('Image generated — @hero composed');
 	};
-	const finishMotion = (shotId: string, ok: boolean) => {
+	const finishMotion = (shotId: string, url: string | null) => {
 		setGen(null);
-		patchShot(shotId, (s) => ({ status: 'ready', output: { ...s.output, motion: 'ready' } }));
-		toast(ok ? 'Video generated — @hero animated' : 'Video generated — @hero animated (preview)');
+		patchShot(shotId, (s) => ({ status: 'ready', output: { ...s.output, motion: 'ready' }, ...(url ? { videoUrl: url } : {}) }));
+		toast(url ? 'Video generated — @hero animated' : 'Video generated — @hero animated (preview)');
 	};
 	const generate = (shotId: string, mode: Mode, settings?: { res?: string; aspect?: string; batch?: number; dur?: string; quality?: string; model?: string }) => {
 		const st = stateRef.current;
@@ -229,9 +229,9 @@ export function StudioApp() {
 			const rawV = (shot.promptOverride || '').trim() || `@hero performs the reference's ${tc.motion.move.toLowerCase()} — smooth, continuous video, consistent lighting and label legibility across the full ${tc.motion.dur}s.`;
 			const prompt = rawV.includes('@hero') ? resolveHeroPrompt(rawV, { hasHeroRef: !!shot.heroSrc }) : rawV;
 			studioGenerateVideo({ prompt, startImage, aspect, duration: settings?.dur, quality: settings?.quality, model: settings?.model }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
-				.then(() => finishMotion(shotId, true))
+				.then((url) => finishMotion(shotId, url))
 				.catch((e: Error) => {
-					if (demoRef.current) { finishMotion(shotId, false); return; }
+					if (demoRef.current) { finishMotion(shotId, null); return; }
 					setGen(null); patchShot(shotId, { status: 'draft' });
 					toast(/Kling/i.test(e?.message || '') ? 'Add your Kling keys (🔑 top-right) to generate video.' : 'Video generation failed — ' + (e?.message || 'check your Kling keys.'));
 				});

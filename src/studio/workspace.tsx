@@ -330,8 +330,7 @@ function StillResult({ shot, style, selSrc, takeNo }: { shot: StudioShot; style:
 	);
 }
 
-function MotionResult({ shot, motion }: { shot: StudioShot; motion: ToolState['motion'] }) {
-	const frames = shot.motionFrames || A.outFrames;
+function DemoFrames({ motion, frames }: { motion: ToolState['motion']; frames: string[] }) {
 	const [i, setI] = useState(0);
 	useEffect(() => {
 		const id = setInterval(() => setI((x) => (x + 1) % frames.length), 360);
@@ -341,10 +340,22 @@ function MotionResult({ shot, motion }: { shot: StudioShot; motion: ToolState['m
 	return (
 		<>
 			<NImg src={frames[i]} className="ns-stage-img" fit="cover" />
-			<span className="ns-stage-badge"><span className="ns-rec" /> {motion.model} · {motion.dur}s · {motion.res}</span>
+			<span className="ns-stage-badge"><span className="ns-rec" /> {motion.model} · {motion.dur}s · preview</span>
 			<span className="ns-stage-tc">{t.toFixed(1)}s / {motion.dur.toFixed(1)}s · {motion.move}</span>
 		</>
 	);
+}
+
+function MotionResult({ shot, motion }: { shot: StudioShot; motion: ToolState['motion'] }) {
+	if (shot.videoUrl) {
+		return (
+			<>
+				<video className="ns-stage-img" src={shot.videoUrl} controls autoPlay loop muted playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#0e0f12' }} />
+				<span className="ns-stage-badge">{NI.motion()} {motion.model} · {motion.dur}s</span>
+			</>
+		);
+	}
+	return <DemoFrames motion={motion} frames={shot.motionFrames || A.outFrames} />;
 }
 
 function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { shot: StudioShot; gen: Gen | null; dispatch: Dispatch; spot: string | null; tools: ToolState; style: Style; fix: Fix | null; toast: (m: string) => void }) {
@@ -393,7 +404,7 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 				)}
 			</div>
 
-			{motion && (ready || busy) && (
+			{motion && (ready || busy) && !shot.videoUrl && (
 				<div className="ns-frames">
 					{frames.map((src, i) => (
 						<div key={i} className={'ns-frame' + (i === 2 ? ' on' : '')}>

@@ -57,6 +57,7 @@ export interface StudioShot {
 	promptFinal?: boolean;
 	promptExtra?: string;
 	promptOverride?: string;
+	videoUrl?: string;
 	history?: string[][];
 	sel?: { r: number; c: number } | null;
 	variant?: number;
