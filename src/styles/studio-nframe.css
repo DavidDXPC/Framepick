@@ -665,3 +665,8 @@ body { background: var(--content); }
    text or the empty-state placeholder: lay them out as a right-aligned
    row above the text instead of floating over it. */
 .ns-prompt-bar { float: none; justify-content: flex-end; margin: 0 0 6px; }
+
+/* Video model dropdown in the generation settings bar */
+.ns-genset-select { font-family: inherit; font-size: 12px; font-weight: 600; color: var(--ink); background: var(--surface); border: .5px solid var(--sep); border-radius: 7px; padding: 4px 26px 4px 9px; cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>"); background-repeat: no-repeat; background-position: right 7px center; transition: .12s; }
+.ns-genset-select:hover { border-color: var(--accent); }
+.ns-genset-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }

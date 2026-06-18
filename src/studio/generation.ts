@@ -66,6 +66,7 @@ export interface VideoGenInput {
 	aspect: string;
 	duration?: string; // seconds — Kling image-to-video supports '5' or '10'
 	quality?: string; // 'std' | 'pro'
+	model?: string; // kling model id (e.g. kling-v3, kling-v2-5-turbo)
 }
 
 // Returns the finished video URL. Throws when Kling keys are missing.
@@ -76,7 +77,7 @@ export async function studioGenerateVideo(input: VideoGenInput, onTick?: (s: str
 	const taskId = await generateVideo({
 		accessKey: kling.accessKey,
 		secretKey: kling.secretKey,
-		model: kling.model,
+		model: input.model || kling.model,
 		image,
 		prompt: input.prompt,
 		aspectRatio: input.aspect === 'auto' ? '16:9' : input.aspect,

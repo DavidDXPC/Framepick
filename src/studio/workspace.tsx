@@ -7,6 +7,7 @@ import { NImg, Popover, Spinner } from './ui';
 import { A, NS_MEDIA_BY_ID } from './assets';
 import { fileToRefImage } from '../state/persistence';
 import { resolvePrompt, ToolsBar, VisualStyleSection } from './tools';
+import { KLING_MODELS } from '../lib/videoSettings';
 import type { Comp, Dispatch, Fix, Gen, Status, StudioShot, Style, ToolState, Tx } from './types';
 
 /* ---------------- drag & drop: References → slots ---------------- */
@@ -361,6 +362,7 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 	const [genRes, setGenRes] = useState('2K');
 	const [genAspect, setGenAspect] = useState('1:1');
 	const [genBatch, setGenBatch] = useState(1);
+	const [vidModel, setVidModel] = useState('kling-v3');
 	const [vidQuality, setVidQuality] = useState('std');
 	const [vidDur, setVidDur] = useState('5');
 	const [vidAspect, setVidAspect] = useState('1:1');
@@ -426,7 +428,11 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 			<div className="ns-out-foot">
 				{motion && (
 					<div className="ns-genset">
-						<div className="ns-genset-grp"><span>Model</span><b className="ns-genset-model">{NI.sparkles()} Kling 3.0</b></div>
+						<div className="ns-genset-grp"><span>Model</span>
+							<select className="ns-genset-select" value={vidModel} onChange={(e) => setVidModel(e.target.value)} title="Kling video model">
+								{KLING_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+							</select>
+						</div>
 						<div className="ns-genset-grp"><span>Quality</span>
 							<div className="seg sm">{[['std', 'Standard'], ['pro', 'Pro']].map(([v, l]) => <button key={v} className={vidQuality === v ? 'on' : ''} onClick={() => setVidQuality(v)}>{l}</button>)}</div>
 						</div>
@@ -439,7 +445,7 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 						<div className="ns-genset-grp"><span>Batch size</span>
 							<div className="seg sm">{[1, 2, 3, 4].map((b) => <button key={b} className={vidBatch === b ? 'on' : ''} onClick={() => setVidBatch(b)}>{b}</button>)}</div>
 						</div>
-						<button className="btn filled ns-genset-go" disabled={busy} onClick={() => dispatch({ type: 'generate', settings: { aspect: vidAspect, batch: vidBatch, dur: vidDur, quality: vidQuality } })}>
+						<button className="btn filled ns-genset-go" disabled={busy} onClick={() => dispatch({ type: 'generate', settings: { aspect: vidAspect, batch: vidBatch, dur: vidDur, quality: vidQuality, model: vidModel } })}>
 							{busy ? <><Spinner className="lt" /> {gen.label}</> : ready ? <>{I.refresh()} Regenerate Video</> : <>{NI.sparkles()} Generate Video</>}
 						</button>
 					</div>
