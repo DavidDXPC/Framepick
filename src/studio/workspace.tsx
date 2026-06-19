@@ -8,7 +8,8 @@ import { A, NS_MEDIA_BY_ID } from './assets';
 import { fileToRefImage } from '../state/persistence';
 import { resolvePrompt, ToolsBar, VisualStyleSection } from './tools';
 import { KLING_MODELS } from '../lib/videoSettings';
-import { loadCredits, saveCredits, videoCost, formatCredits } from './credits';
+import { videoCost, formatCredits } from './credits';
+import { getBalance, subscribeBalance, refreshBalance, noteSpend } from './creditBalance';
 import type { Comp, Dispatch, Fix, Gen, Status, StudioShot, Style, ToolState, Tx } from './types';
 
 /* ---------------- drag & drop: References → slots ---------------- */
@@ -211,7 +212,10 @@ function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { 
 	const previewText = (previewBase + (previewHint ? ' ' + previewHint : '')).replace(/\s+/g, ' ').trim();
 	const override = (shot.promptOverride || '').trim();
 	const finalText = override || resolvePrompt(shot, view, style, frame);
-	const promptText = finalized ? finalText : previewText;
+	const videoSentence = `@hero performs the reference's ${tx.tools.motion.move.toLowerCase()} — smooth, continuous video with consistent lighting and label legibility across the full ${tx.tools.motion.dur}s.`;
+	const videoFinal = override || videoSentence;
+	const videoText = finalized ? videoFinal : videoSentence;
+	const promptText = motion ? videoText : finalized ? finalText : previewText;
 	const copyPrompt = () => {
 		if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(promptText).then(() => toast('Prompt copied to clipboard'), () => toast('Prompt copied'));
 		else toast('Prompt copied');
@@ -297,12 +301,21 @@ function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { 
 					<div className="ns-vprompt">
 						<div className="ns-refgroup-h">{NI.motion()} Video Prompt</div>
 						<div className="ns-prompt-box ns-vprompt-box" contentEditable suppressContentEditableWarning spellCheck={false} title="Describe how @hero moves through the clip">
-							<span className="ns-tok" style={{ fontSize: '11px', padding: '0 4px' }}>@hero</span> performs the reference's {tx.tools.motion.move.toLowerCase()} — smooth, continuous video with consistent lighting and label legibility across the full {tx.tools.motion.dur}s.
+							<div className="ns-prompt-bar" contentEditable={false}>
+								<div className="ns-prompt-acts">
+									<button className="ns-prompt-act" title="Copy full prompt" onClick={copyPrompt}>{I.copy()}</button>
+								</div>
+							</div>
+							{videoText.split('@hero').map((p, i) => (
+								<span key={i}>{i > 0 && <span className="ns-tok" style={{ fontSize: '11px', padding: '0 4px' }}>@hero</span>}{p}</span>
+							))}
+							<div className="ns-prompt-actions-row" contentEditable={false}>
+								<button className="ns-prompt-assembled" onClick={() => setAssembledOpen(true)} title="Open the full assembled prompt to view & edit">{NI.motion()} Assembled prompt</button>
+								<button className="ns-prompt-go" title="Run — assemble the final video prompt" onClick={(e) => { e.stopPropagation(); dispatch({ type: 'finalizePrompt' }); toast('Video prompt assembled'); }}>{I.play()} Run</button>
+							</div>
 						</div>
 					</div>
 				)}
-				{motion && <div className="ns-tools-sep" />}
-				{motion && <ToolsBar shot={shot} tools={tx.tools} onFrame={tx.onFrame} onMotion={tx.onMotion} />}
 			</div>
 			{assembledOpen && (
 				<div className="ns-modal-veil" onClick={() => setAssembledOpen(false)}>
@@ -384,16 +397,21 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 	const [vidModel, setVidModel] = useState('kling-v3');
 	const [vidQuality, setVidQuality] = useState('std');
 	const [vidDur, setVidDur] = useState(5);
-	const [credits, setCredits] = useState(loadCredits());
 	const [vidAspect, setVidAspect] = useState('1:1');
 	const [vidBatch, setVidBatch] = useState(1);
 	const [lightbox, setLightbox] = useState<string | null>(null);
+	const [credits, setCredits] = useState<number | null>(getBalance());
+	useEffect(() => {
+		const unsub = subscribeBalance(() => setCredits(getBalance()));
+		if (motion) refreshBalance();
+		return unsub;
+	}, [motion, ready]);
 	const vidCost = videoCost({ model: vidModel, quality: vidQuality, duration: vidDur, aspect: vidAspect, batch: vidBatch });
-	const enoughCredits = credits >= vidCost;
+	const enoughCredits = credits == null || credits >= vidCost; // can't block when balance is unknown
 	const runVideo = () => {
 		if (busy || !enoughCredits) return;
-		setCredits((c) => { const n = c - vidCost; saveCredits(n); return n; });
 		dispatch({ type: 'generate', settings: { aspect: vidAspect, batch: vidBatch, dur: String(vidDur), quality: vidQuality, model: vidModel } });
+		noteSpend(vidCost); // optimistic; trued up by refreshBalance after the job
 	};
 
 	return (
@@ -469,7 +487,7 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 						<div className="ns-credits">
 							<span>Cost <b>~{vidCost}</b> credits</span>
 							<span className="flex" />
-							<span className={enoughCredits ? '' : 'low'}>Available <b>{formatCredits(credits)}</b> credits</span>
+							<span className={enoughCredits ? '' : 'low'} title={credits == null ? 'Connect valid Kling keys to see your balance' : ''}>Available <b>{credits == null ? '—' : formatCredits(credits)}</b> credits</span>
 						</div>
 						<button className="btn filled ns-genset-go" disabled={busy || !enoughCredits} onClick={runVideo}>
 							{busy ? <><Spinner className="lt" /> {gen.label}</> : !enoughCredits ? <>Not enough credits</> : ready ? <>{I.refresh()} Regenerate Video</> : <>{NI.sparkles()} Generate Video</>}
