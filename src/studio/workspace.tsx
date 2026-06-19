@@ -199,8 +199,6 @@ const ENHANCE_CLAUSE = 'Heightened realism, refined micro-contrast and deliberat
 function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { shot: StudioShot; view: string; dispatch: Dispatch; spot: string | null; toast: (m: string) => void; frame: ToolState['frame']; style: Style; tx: Tx }) {
 	const motion = shot.mode === 'motion';
 	const tips = REFINE_TIPS;
-	const [assembledOpen, setAssembledOpen] = useState(false);
-	const [assembledEdit, setAssembledEdit] = useState<string | null>(null);
 	const cameraLine = ` Shot on ${frame.lens} at ƒ${frame.fstop}, ${frame.size.toLowerCase()} framing, ${frame.light.toLowerCase()}, ${style.grade.toLowerCase()} grade.`;
 	const HERO_HINT = "@hero placed into the reference's exact framing, scale and lighting.";
 	const styleDesc = (style.suffix || '').trim();
@@ -290,7 +288,6 @@ function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { 
 							<span className="ns-prompt-empty" contentEditable={false}>Add a Hero and Composition, then pick a Workflow — the assembled prompt builds here.</span>
 						)}
 						<div className="ns-prompt-actions-row" contentEditable={false}>
-							<button className="ns-prompt-assembled" onClick={() => setAssembledOpen(true)} title="Open the full assembled prompt to view & edit">{NI.motion()} Assembled prompt</button>
 							<button className="ns-prompt-go" title="Run — assemble the final prompt" onClick={(e) => { e.stopPropagation(); dispatch({ type: 'finalizePrompt' }); toast('Prompt assembled'); }}>{I.play()} Run</button>
 						</div>
 					</div>
@@ -310,33 +307,12 @@ function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { 
 								<span key={i}>{i > 0 && <span className="ns-tok" style={{ fontSize: '11px', padding: '0 4px' }}>@hero</span>}{p}</span>
 							))}
 							<div className="ns-prompt-actions-row" contentEditable={false}>
-								<button className="ns-prompt-assembled" onClick={() => setAssembledOpen(true)} title="Open the full assembled prompt to view & edit">{NI.motion()} Assembled prompt</button>
-								<button className="ns-prompt-go" title="Run — assemble the final video prompt" onClick={(e) => { e.stopPropagation(); dispatch({ type: 'finalizePrompt' }); toast('Video prompt assembled'); }}>{I.play()} Run</button>
+									<button className="ns-prompt-go" title="Run — assemble the final video prompt" onClick={(e) => { e.stopPropagation(); dispatch({ type: 'finalizePrompt' }); toast('Video prompt assembled'); }}>{I.play()} Run</button>
 							</div>
 						</div>
 					</div>
 				)}
 			</div>
-			{assembledOpen && (
-				<div className="ns-modal-veil" onClick={() => setAssembledOpen(false)}>
-					<div className="ns-modal ns-modal-prompt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Assembled prompt">
-						<div className="ns-modal-h">
-							<span className="ns-modal-title">{NI.motion()} Assembled prompt</span>
-							<button className="icon-btn" onClick={() => setAssembledOpen(false)} title="Close">{I.x()}</button>
-						</div>
-						<div className="ns-modal-body">
-							<textarea className={'ns-assembled-ta' + (!finalized && assembledEdit == null ? ' preview' : '')} spellCheck={false} placeholder="Add a Hero and Composition, then pick a Workflow — the assembled prompt builds here." value={assembledEdit ?? promptText} onChange={(e) => setAssembledEdit(e.target.value)} />
-						</div>
-						<div className="ns-modal-foot">
-							<span className="ns-modal-note">The complete prompt sent to the model — edit freely, then Save.</span>
-							<span className="flex" />
-							{assembledEdit != null && <button className="btn" onClick={() => { setAssembledEdit(null); dispatch({ type: 'setPromptOverride', text: '' }); toast('Reset to assembled prompt'); }}>{I.refresh()} Reset</button>}
-							<button className="btn" onClick={() => { const t = assembledEdit ?? promptText; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t); toast('Prompt copied'); }}>{I.copy()} Copy</button>
-							<button className="btn filled" onClick={() => { if (assembledEdit != null) dispatch({ type: 'setPromptOverride', text: assembledEdit }); setAssembledOpen(false); }}>Save</button>
-						</div>
-					</div>
-				</div>
-			)}
 		</section>
 	);
 }
@@ -489,8 +465,10 @@ function OutputPanel({ shot, gen, dispatch, spot, tools, style, fix, toast }: { 
 							<span className="flex" />
 							<span className={enoughCredits ? '' : 'low'} title={credits == null ? 'Connect valid Kling keys to see your balance' : ''}>Available <b>{credits == null ? '—' : formatCredits(credits)}</b> credits</span>
 						</div>
-						<button className="btn filled ns-genset-go" disabled={busy || !enoughCredits} onClick={runVideo}>
-							{busy ? <><Spinner className="lt" /> {gen.label}</> : !enoughCredits ? <>Not enough credits</> : ready ? <>{I.refresh()} Regenerate Video</> : <>{NI.sparkles()} Generate Video</>}
+						<button className={'btn filled ns-genset-go' + (busy ? ' ns-cancelable' : '')} disabled={busy ? false : !enoughCredits} onClick={busy ? () => dispatch({ type: 'cancelGen' }) : runVideo} title={busy ? 'Cancel video generation' : ''}>
+							{busy ? (
+								<><span className="ns-go-run"><Spinner className="lt" /> Generating Video…</span><span className="ns-go-cancel">{I.x()} Cancel</span></>
+							) : !enoughCredits ? <>Not enough credits</> : ready ? <>{I.refresh()} Regenerate Video</> : <>{NI.sparkles()} Generate Video</>}
 						</button>
 					</div>
 				)}
@@ -555,9 +533,11 @@ export function ShotWorkspace({ shot, layout, promptView, gen, spot, dispatch, t
 			</div>
 			<div className="ns-ws-body">
 				{banner}
-				<VisualStyleSection text={tx.vsText} activeStyle={style} styleSet={tx.styleSet} recipes={tx.recipes} activeRecipeId={tx.activeRecipeId} scope={tx.scope} onChange={tx.onVsText} onEnhance={tx.onEnhanceStyle} onOpenRecipes={tx.onOpenRecipes} onReset={tx.onResetProject} onScope={tx.onScope} onPickRecipe={tx.onPickRecipe} onAddStyle={tx.onAddStyle} />
 				<div className="ns-grid" data-layout={layout}>
 					<ReferencesPanel shot={shot} dispatch={dispatch} spot={spot} />
+					<div className="ns-area-vstyle">
+						<VisualStyleSection text={tx.vsText} activeStyle={style} styleSet={tx.styleSet} recipes={tx.recipes} activeRecipeId={tx.activeRecipeId} scope={tx.scope} onChange={tx.onVsText} onEnhance={tx.onEnhanceStyle} onOpenRecipes={tx.onOpenRecipes} onReset={tx.onResetProject} onScope={tx.onScope} onPickRecipe={tx.onPickRecipe} onAddStyle={tx.onAddStyle} />
+					</div>
 					<PromptPanel shot={shot} view={promptView} dispatch={dispatch} spot={spot} toast={toast} frame={tx.tools.frame} style={style} tx={tx} />
 					<OutputPanel shot={shot} gen={gen} dispatch={dispatch} spot={spot} tools={tx.tools} style={style} fix={tx.fix} toast={toast} />
 				</div>

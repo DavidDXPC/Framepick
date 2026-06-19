@@ -151,6 +151,7 @@ export function StudioApp() {
 	stateRef.current = { shots, toolState, projectStyle, recipes };
 	const demoRef = useRef(demo);
 	demoRef.current = demo;
+	const genTokenRef = useRef(0);
 
 	// Consume FramePick extension handoffs (composition / motion) into the active shot.
 	useEffect(() => {
@@ -221,6 +222,8 @@ export function StudioApp() {
 		const tc = st.toolState[shotId] || nsDefaultTools(shot);
 		const style = computeStyle(tc, st.projectStyle, st.recipes);
 		patchShot(shotId, { status: 'gen', promptFinal: true });
+		const myToken = ++genTokenRef.current; // invalidated by Cancel / a newer run
+		const live = () => genTokenRef.current === myToken;
 		const aspect = settings?.aspect || tc.frame.aspect || '1:1';
 		const batch = settings?.batch || 1;
 		if (mode === 'motion') {
@@ -234,8 +237,9 @@ export function StudioApp() {
 			const rawV = (shot.promptOverride || '').trim() || `@hero performs the reference's ${tc.motion.move.toLowerCase()} — smooth, continuous video, consistent lighting and label legibility across the full ${tc.motion.dur}s.`;
 			const prompt = rawV.includes('@hero') ? resolveHeroPrompt(rawV, { hasHeroRef: !!shot.heroSrc }) : rawV;
 			studioGenerateVideo({ prompt, startImage, endImage, references, aspect, duration: settings?.dur, quality: settings?.quality, model: settings?.model }, (s) => setGen((g) => (g && g.shotId === shotId ? { ...g, label: `Kling · ${s}…` } : g)))
-				.then((url) => finishMotion(shotId, url))
+				.then((url) => { if (live()) finishMotion(shotId, url); })
 				.catch((e: Error) => {
+					if (!live()) return; // cancelled
 					if (demoRef.current) { finishMotion(shotId, null); return; }
 					setGen(null); patchShot(shotId, { status: 'draft' });
 					toast(/Kling/i.test(e?.message || '') ? 'Add your Kling keys (🔑 top-right) to generate video.' : 'Video generation failed — ' + (e?.message || 'check your Kling keys.'));
@@ -247,8 +251,9 @@ export function StudioApp() {
 			const hero = shot.heroSrc || A.heroAsset;
 			const comp = shot.compSrc || (shot.comps[0] ? (shot.comps[0].mediaId ? NS_MEDIA_BY_ID[shot.comps[0].mediaId].src : shot.comps[0].src || A.ref) : A.ref);
 			studioGenerateImage({ prompt, hero, comp, aspect, batch })
-				.then((srcs) => finishImage(shotId, srcs))
+				.then((srcs) => { if (live()) finishImage(shotId, srcs); })
 				.catch((e: Error) => {
+					if (!live()) return; // cancelled
 					if (demoRef.current) { finishImage(shotId, demoStills(shotId, batch)); return; }
 					setGen(null); patchShot(shotId, { status: 'draft' });
 					toast(/OpenAI/i.test(e?.message || '') ? 'Add your OpenAI API key (🔑 top-right) to generate images.' : 'Image generation failed — ' + (e?.message || 'check your API key.'));
@@ -385,6 +390,7 @@ export function StudioApp() {
 			case 'finalizePrompt': return patchShot(activeId, { promptFinal: true });
 			case 'setPromptOverride': return patchShot(activeId, { promptOverride: a.text as string });
 			case 'setVideoMode': return patchShot(activeId, { videoMode: a.value as 'frames' | 'refs' });
+			case 'cancelGen': { genTokenRef.current++; setGen(null); patchShot(activeId, { status: 'draft' }); toast('Video generation cancelled'); return; }
 			default: return;
 		}
 	};
