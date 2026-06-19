@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { NI, I, TI } from './icons';
 import { A, COMP_POOL, NS_MEDIA_BY_ID, NS_SHOTS0, nsUid } from './assets';
-import { nsDefaultTools, RECIPES0, recipeStyleText, resolvePrompt, STYLE_BY_ID, RecipesModal } from './tools';
+import { assembleImagePrompt, nsDefaultTools, RECIPES0, recipeStyleText, resolvePrompt, STYLE_BY_ID, RecipesModal } from './tools';
 import { ShotWorkspace } from './workspace';
 import { SafariWindow } from './extension';
 import { studioGenerateImage, studioGenerateVideo } from './generation';
@@ -147,8 +147,8 @@ export function StudioApp() {
 	}, [shots, toolState, projectStyle, styleSet, projectStyleText, recipes, activeId]);
 
 	// fresh-state ref for async generation (avoids stale closures in timed guides)
-	const stateRef = useRef({ shots, toolState, projectStyle, recipes });
-	stateRef.current = { shots, toolState, projectStyle, recipes };
+	const stateRef = useRef({ shots, toolState, projectStyle, recipes, projectStyleText });
+	stateRef.current = { shots, toolState, projectStyle, recipes, projectStyleText };
 	const demoRef = useRef(demo);
 	demoRef.current = demo;
 	const genTokenRef = useRef(0);
@@ -246,10 +246,20 @@ export function StudioApp() {
 				});
 		} else {
 			setGen({ shotId, mode, label: 'Rendering image…' });
-			const raw = (shot.promptOverride || '').trim() || resolvePrompt(shot, 'hero', style, tc.frame);
-			const prompt = raw.includes('@hero') ? resolveHeroPrompt(raw, { hasHeroRef: !!shot.heroSrc }) : raw;
+			// Hero (first input image) is the subject to preserve; Composition
+			// (second input image) is the target layout to swap the Hero into.
+			const hasHero = !!shot.heroSrc;
+			const realComp = shot.compSrc || (shot.comps[0] ? (shot.comps[0].mediaId ? NS_MEDIA_BY_ID[shot.comps[0].mediaId].src : shot.comps[0].src || '') : '');
+			const hasComp = !!realComp;
+			let prompt: string;
+			if (hasHero && hasComp) {
+				prompt = assembleImagePrompt({ visualStyle: st.projectStyleText, hasHero, hasComp, workflow: !!shot.workflow, style, frame: tc.frame });
+			} else {
+				const raw = (shot.promptOverride || '').trim() || resolvePrompt(shot, 'hero', style, tc.frame);
+				prompt = raw.includes('@hero') ? resolveHeroPrompt(raw, { hasHeroRef: hasHero }) : raw;
+			}
 			const hero = shot.heroSrc || A.heroAsset;
-			const comp = shot.compSrc || (shot.comps[0] ? (shot.comps[0].mediaId ? NS_MEDIA_BY_ID[shot.comps[0].mediaId].src : shot.comps[0].src || A.ref) : A.ref);
+			const comp = realComp || null;
 			studioGenerateImage({ prompt, hero, comp, aspect, batch })
 				.then((srcs) => { if (live()) finishImage(shotId, srcs); })
 				.catch((e: Error) => {

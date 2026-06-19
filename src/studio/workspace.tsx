@@ -6,7 +6,7 @@ import { NI, I, TI } from './icons';
 import { NImg, Popover, Spinner } from './ui';
 import { A, NS_MEDIA_BY_ID } from './assets';
 import { fileToRefImage } from '../state/persistence';
-import { resolvePrompt, ToolsBar, VisualStyleSection } from './tools';
+import { assembleImagePrompt, resolvePrompt, ToolsBar, VisualStyleSection } from './tools';
 import { KLING_MODELS } from '../lib/videoSettings';
 import { videoCost, formatCredits } from './credits';
 import { getBalance, subscribeBalance, refreshBalance, noteSpend } from './creditBalance';
@@ -209,7 +209,11 @@ function PromptPanel({ shot, view, dispatch, spot, toast, frame, style, tx }: { 
 	const previewHint = workflowOn ? HERO_HINT : '';
 	const previewText = (previewBase + (previewHint ? ' ' + previewHint : '')).replace(/\s+/g, ' ').trim();
 	const override = (shot.promptOverride || '').trim();
-	const finalText = override || resolvePrompt(shot, view, style, frame);
+	const hasHeroIn = !!shot.heroSrc;
+	const hasCompIn = !!(shot.compSrc || shot.comps[0]);
+	const finalText = hasHeroIn && hasCompIn
+		? assembleImagePrompt({ visualStyle: tx.vsText, hasHero: hasHeroIn, hasComp: hasCompIn, workflow: !!shot.workflow, style, frame })
+		: override || resolvePrompt(shot, view, style, frame);
 	const videoSentence = `@hero performs the reference's ${tx.tools.motion.move.toLowerCase()} — smooth, continuous video with consistent lighting and label legibility across the full ${tx.tools.motion.dur}s.`;
 	const videoFinal = override || videoSentence;
 	const videoText = finalized ? videoFinal : videoSentence;

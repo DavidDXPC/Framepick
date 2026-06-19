@@ -95,6 +95,31 @@ export function resolvePrompt(shot: StudioShot, view: string, style: Style, fram
 	return (shot.promptPre + subj + shot.promptPost + (style.suffix || '') + cam + extra).replace(/\s+/g, ' ').trim();
 }
 
+// Assemble the image prompt as an explicit subject-SWAP instruction:
+// Visual Style (grade) + Hero (preserve, first input image) + Composition
+// (target layout, second input image — replace its subject with the Hero).
+export function assembleImagePrompt(opts: { visualStyle: string; hasHero: boolean; hasComp: boolean; workflow: boolean; style: Style; frame: FrameTools }): string {
+	const { visualStyle, hasHero, hasComp, workflow, style, frame } = opts;
+	const vs = (visualStyle || '').trim() || `${style.name} look.${style.suffix || ''}`.trim();
+	const parts: string[] = [];
+	if (hasHero && hasComp) {
+		parts.push('Preserve the subject from the FIRST input image (the Hero) exactly — its identity, product shape, label and details, materials and design.');
+		if (workflow) {
+			parts.push("Place that Hero into the SECOND input image (the Composition): keep the Composition's framing, camera angle, pose and spatial placement, scale, background and context, and lighting direction — and REPLACE the targeted subject in the Composition with the Hero. Do not recreate the Composition's original subject.");
+		} else {
+			parts.push('Use the SECOND input image (the Composition) only as a layout reference for framing, angle and placement; the Hero is the subject.');
+		}
+	} else if (hasHero) {
+		parts.push('Use the input image as the subject (the Hero) — preserve its identity, shape, label, materials and design.');
+	} else if (hasComp) {
+		parts.push('Use the input image as a composition reference for framing, layout and placement.');
+	}
+	parts.push(`Visual style — apply for lighting, color grade, contrast, mood and rendering: ${vs}`);
+	parts.push(`Camera: ${frame.lens} at ƒ${frame.fstop}, ${frame.size.toLowerCase()} framing.`);
+	parts.push('Output: photorealistic, accurate color, coherent edges and geometry, a single subject, no extra text or watermarks.');
+	return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
 // ============ shared bits ============
 function OptRow({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
 	return (
