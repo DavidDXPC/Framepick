@@ -699,3 +699,7 @@ body { background: var(--content); }
 
 /* (3,4) Remove (×) icon: top-right corner of the thumbnail, smaller. */
 .ns-comp-remove { left: auto; top: 4px; right: 4px; transform: none; width: 20px; height: 20px; font-size: 10px; }
+
+/* Match the input-slot clear (×) — Hero/Composition/Start/End — to the smaller,
+   top-right corner treatment (already hover-only via .ns-fslot-img:hover). */
+.ns-fslot-x { top: 5px; right: 5px; width: 20px; height: 20px; font-size: 10px; }
